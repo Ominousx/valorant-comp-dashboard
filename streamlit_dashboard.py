@@ -978,7 +978,7 @@ with tabs[5]:
             'Jett': 'Duelist', 'Raze': 'Duelist', 'Reyna': 'Duelist', 'Yoru': 'Duelist', 'Phoenix': 'Duelist', 'Iso': 'Duelist', 'Waylay': 'Duelist', 'Neon':'Duelist',
             'Skye': 'Initiator', 'KAY/O': 'Initiator', 'Breach': 'Initiator', 'Fade': 'Initiator', 'Sova': 'Initiator', 'Gekko': 'Initiator', 'Tejo': 'Initiator',
             'Omen': 'Controller', 'Brimstone': 'Controller', 'Astra': 'Controller', 'Viper': 'Controller', 'Harbor': 'Controller', 'Clove': 'Controller',
-            'Killjoy': 'Sentinel', 'Cypher': 'Sentinel', 'Chamber': 'Sentinel', 'Sage': 'Sentinel', 'Deadlock': 'Sentinel', 'Vyse': 'Sentinel'
+            'Killjoy': 'Sentinel', 'Cypher': 'Sentinel', 'Chamber': 'Sentinel', 'Sage': 'Sentinel', 'Deadlock': 'Sentinel', 'Vyse': 'Sentinel', 'Veto': 'Sentinel'
         }
 
         # VCT average benchmarks by role
