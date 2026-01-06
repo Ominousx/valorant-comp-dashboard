@@ -8,7 +8,7 @@ import base64
 
 # Hardcoded credentials
 USERNAME = "admin"
-PASSWORD = "wolves123"
+PASSWORD = "tyloo123"
 
 # Login logic
 if "logged_in" not in st.session_state:
@@ -56,7 +56,7 @@ st.markdown(f"""
 
     h1, h2, h3, .stTabs, .stButton {{
         font-family: 'Inter', sans-serif;
-        color: #FDB913;
+        color: #DC143C;
     }}
 
     .stDataFrame, .stTable {{
@@ -66,7 +66,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.title("Valorant Scrim Dashboard")
-st.image("wolves_logo.png", width=100)
+st.image("tyloo_logo.png", width=100)
 
 
 # Load form.csv for overview and map comps
@@ -122,7 +122,7 @@ with tabs[0]:
             title="Map Win Rates",
             labels={'Win Rate %': 'Win Rate (%)', 'Map': 'Map'},
             color='Win Rate %',
-            color_continuous_scale=['#ff0000', '#FDB913']
+            color_continuous_scale=['#8B0000', '#DC143C']
         )
 
         fig_map_wr.update_traces(
@@ -134,8 +134,8 @@ with tabs[0]:
         fig_map_wr.update_layout(
             plot_bgcolor='#000000',
             paper_bgcolor='#000000',
-            font=dict(family='Inter', size=14, color='#FDB913'),
-            title_font=dict(size=20, color='#FDB913'),
+            font=dict(family='Inter', size=14, color='#DC143C'),
+            title_font=dict(size=20, color='#DC143C'),
             yaxis=dict(
                 tickfont=dict(color='#ffffff'),
                 categoryorder='total ascending',
@@ -143,7 +143,7 @@ with tabs[0]:
             ),
             xaxis=dict(
                 title='Win Rate (%)',
-                title_font=dict(color='#FDB913'),
+                title_font=dict(color='#DC143C'),
                 tickfont=dict(color='#ffffff'),
                 gridcolor='#333333',
                 range=[0, 100]
@@ -237,7 +237,7 @@ with tabs[1]:
             orientation='h',
             title=f"Top Compositions on {selected_map}",
             labels={'Win Rate %': 'Win Rate (%)', 'Comp String': 'Agent Composition'},
-            color_discrete_sequence=['#FDB913']
+            color_discrete_sequence=['#DC143C']
         )
 
         fig_comp.update_traces(
@@ -251,8 +251,8 @@ with tabs[1]:
         fig_comp.update_layout(
             plot_bgcolor='#000000',
             paper_bgcolor='#000000',
-            font=dict(color='#FDB913', family='Inter'),
-            title_font=dict(size=20, color='#FDB913'),
+            font=dict(color='#DC143C', family='Inter'),
+            title_font=dict(size=20, color='#DC143C'),
             margin=dict(t=40, l=100, r=40, b=20),
             yaxis=dict(
                 categoryorder='total ascending',
@@ -369,7 +369,7 @@ with tabs[2]:
             .set_properties(**{'text-align': 'center'})\
             .set_table_styles([{
                 'selector': 'th',
-                'props': [('background-color', '#1a1a1a'), ('color', '#FDB913'), ('text-align', 'center')]
+                'props': [('background-color', '#1a1a1a'), ('color', '#DC143C'), ('text-align', 'center')]
             }])
 
         # Only show selected columns in the summary table (hide raw WRs)
@@ -389,7 +389,7 @@ with tabs[2]:
 
         # Wolves color map
         color_map = {
-            'Attack': '#FDB913',   # Gold
+            'Attack': '#DC143C',   # Red
             'Defense': '#ffffff'   # White
         }
 
@@ -414,8 +414,8 @@ with tabs[2]:
         fig.update_layout(
             plot_bgcolor='#000000',
             paper_bgcolor='#000000',
-            font=dict(color='#FDB913', family='Inter'),
-            title_font=dict(color='#FDB913', size=20),
+            font=dict(color='#DC143C', family='Inter'),
+            title_font=dict(color='#DC143C', size=20),
             legend_title_text='Side',
             xaxis=dict(tickangle=-25, gridcolor='#333333'),
             yaxis=dict(range=[0, 100], gridcolor='#333333')
@@ -463,7 +463,7 @@ with tabs[2]:
                 text=pp_df_long['Post-Plant Success (%)'].apply(lambda x: f"{x:.1f}%"),
                 title="Post-Plant Success Rate (Stacked Atk + Def)",
                 color_discrete_map={
-                    'Post Plant': '#FDB913',
+                    'Post Plant': '#DC143C',
                     'Retakes': '#ffffff'
                 }
             )
@@ -477,18 +477,18 @@ with tabs[2]:
             fig_pp.update_layout(
                 plot_bgcolor='#000000',
                 paper_bgcolor='#000000',
-                font=dict(family='Inter, sans-serif', size=14, color='#FDB913'),
-                title_font=dict(size=20, color='#FDB913'),
+                font=dict(family='Inter, sans-serif', size=14, color='#DC143C'),
+                title_font=dict(size=20, color='#DC143C'),
                 xaxis=dict(
                     title='Map',
-                    title_font=dict(size=16, color='#FDB913'),
+                    title_font=dict(size=16, color='#DC143C'),
                     tickfont=dict(size=14, color='#ffffff'),
                     tickangle=-25,
                     gridcolor='#333333'
                 ),
                 yaxis=dict(
                     title='Post-Plant Success (%)',
-                    title_font=dict(size=16, color='#FDB913'),
+                    title_font=dict(size=16, color='#DC143C'),
                     tickfont=dict(size=14, color='#ffffff'),
                     gridcolor='#333333',
                     range=[0, 100]
@@ -547,7 +547,7 @@ with tabs[3]:
             y='Pistol Win Rate (%)',
             text=grouped['Pistol Win Rate (%)'].apply(lambda x: f"{x:.1f}%"),
             color='Pistol Win Rate (%)',
-            color_continuous_scale=['#ff0000', '#FDB913'],
+            color_continuous_scale=['#8B0000', '#DC143C'],
             title="Pistol Win Rates by Map"
         )
 
@@ -560,10 +560,10 @@ with tabs[3]:
         fig_pistol.update_layout(
             plot_bgcolor='#000000',
             paper_bgcolor='#000000',
-            font=dict(family='Inter', size=14, color='#FDB913'),
-            title_font=dict(size=20, color='#FDB913'),
+            font=dict(family='Inter', size=14, color='#DC143C'),
+            title_font=dict(size=20, color='#DC143C'),
             xaxis=dict(tickfont=dict(color='#ffffff'), gridcolor='#333333'),
-            yaxis=dict(range=[0, 100], title='Win Rate (%)', title_font=dict(color='#FDB913'), tickfont=dict(color='#ffffff'), gridcolor='#333333')
+            yaxis=dict(range=[0, 100], title='Win Rate (%)', title_font=dict(color='#DC143C'), tickfont=dict(color='#ffffff'), gridcolor='#333333')
         )
 
         st.plotly_chart(fig_pistol, use_container_width=True)
@@ -603,10 +603,10 @@ with tabs[3]:
                          values='Percentage',
                          title=f"Pistol Conversion - {selected_map}",
                          color='Conversion',
-                         color_discrete_map={
-                             'WW': '#FDB913',
-                             'WL': '#666666'
-                         },
+                        color_discrete_map={
+                            'WW': '#DC143C',
+                            'WL': '#666666'
+                        },
                          hole=0.4
                      )
 
@@ -619,8 +619,8 @@ with tabs[3]:
                      fig_pie_win.update_layout(
                          plot_bgcolor='#000000',
                          paper_bgcolor='#000000',
-                         font=dict(family='Inter', size=14, color='#FDB913'),
-                         title_font=dict(size=18, color='#FDB913'),
+                        font=dict(family='Inter', size=14, color='#DC143C'),
+                        title_font=dict(size=18, color='#DC143C'),
                          legend=dict(font=dict(color='#ffffff'))
                      )
 
@@ -659,8 +659,8 @@ with tabs[3]:
                      fig_pie_loss.update_layout(
                          plot_bgcolor='#000000',
                          paper_bgcolor='#000000',
-                         font=dict(family='Inter', size=14, color='#FDB913'),
-                         title_font=dict(size=18, color='#FDB913'),
+                        font=dict(family='Inter', size=14, color='#DC143C'),
+                        title_font=dict(size=18, color='#DC143C'),
                          legend=dict(font=dict(color='#ffffff'))
                      )
 
@@ -780,10 +780,10 @@ with tabs[4]:
 
             palette = sns.color_palette("husl", len(filtered_df['Agent'].unique()))
             sns.swarmplot(data=filtered_df, x='Map', y='ACS', hue='Agent', palette=palette, ax=ax)
-            ax.axhline(avg_acs, color='yellow', linestyle='--', linewidth=1.5)
-            ax.text(x=0.5, y=avg_acs + 2, s=f"Avg ACS: {avg_acs:.1f}", color='yellow', fontsize=10, ha='left')
+            ax.axhline(avg_acs, color='#DC143C', linestyle='--', linewidth=1.5)
+            ax.text(x=0.5, y=avg_acs + 2, s=f"Avg ACS: {avg_acs:.1f}", color='#DC143C', fontsize=10, ha='left')
 
-            ax.set_title(f"{selected_player}'s ACS by Agent & Map", color='#FDB913', fontsize=14)
+            ax.set_title(f"{selected_player}'s ACS by Agent & Map", color='#DC143C', fontsize=14)
             ax.set_ylabel("ACS", color='white')
             ax.set_xlabel("Map", color='white')
             ax.tick_params(colors='white')
@@ -838,7 +838,7 @@ if 'Atk_PP_Success' in summary.columns and 'Def_PP_Success' in summary.columns:
         text=pp_df_long['Post-Plant Success (%)'].apply(lambda x: f"{x:.1f}%"),
         title="Post-Plant Success Rate (Stacked Atk + Def)",
         color_discrete_map={
-            'Post Plant': '#FDB913',
+            'Post Plant': '#DC143C',
             'Retakes': '#ffffff'
         }
     )
@@ -852,18 +852,18 @@ if 'Atk_PP_Success' in summary.columns and 'Def_PP_Success' in summary.columns:
     fig_pp.update_layout(
         plot_bgcolor='#000000',
         paper_bgcolor='#000000',
-        font=dict(family='Inter, sans-serif', size=14, color='#FDB913'),
-        title_font=dict(size=20, color='#FDB913'),
+        font=dict(family='Inter, sans-serif', size=14, color='#DC143C'),
+        title_font=dict(size=20, color='#DC143C'),
         xaxis=dict(
             title='Map',
-            title_font=dict(size=16, color='#FDB913'),
+            title_font=dict(size=16, color='#DC143C'),
             tickfont=dict(size=14, color='#ffffff'),
             tickangle=-25,
             gridcolor='#333333'
         ),
         yaxis=dict(
             title='Post-Plant Success (%)',
-            title_font=dict(size=16, color='#FDB913'),
+            title_font=dict(size=16, color='#DC143C'),
             tickfont=dict(size=14, color='#ffffff'),
             gridcolor='#333333',
             range=[0, 100]
@@ -1007,7 +1007,7 @@ with tabs[5]:
                     theta=categories,
                     fill='toself',
                     name=f"{selected_player}",
-                    line=dict(color="#FDB913")
+                    line=dict(color="#DC143C")
                 ))
                 fig.add_trace(go.Scatterpolar(
                     r=benchmark_values,
@@ -1060,14 +1060,14 @@ with tabs[5]:
                             showline=False,
                             gridcolor="#333333"
                         ),
-                        angularaxis=dict(tickfont=dict(color="#FDB913"))
+                        angularaxis=dict(tickfont=dict(color="#DC143C"))
                     ),
                     showlegend=True,
                     legend=dict(font=dict(color="#ffffff")),
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
-                    font=dict(family='Inter', color='#FDB913'),
-                    title=dict(text=f"{selected_role} Stats vs VCT Benchmark", font=dict(size=16, color='#FDB913')),
+                    font=dict(family='Inter', color='#DC143C'),
+                    title=dict(text=f"{selected_role} Stats vs VCT Benchmark", font=dict(size=16, color='#DC143C')),
                     margin=dict(l=40, r=40, t=60, b=40)
                 )
                 st.plotly_chart(fig, use_container_width=True)
@@ -1090,7 +1090,7 @@ st.markdown("""
             left: 0;
             width: 100%;
             background-color: #000000;
-            color: #FDB913;
+            color: #DC143C;
             text-align: center;
             font-size: 13px;
             font-family: Inter, sans-serif;
@@ -1101,6 +1101,6 @@ st.markdown("""
     </style>
     <div class="footer">
         Made by: <b>Ominous</b> | X:
-        <a href="https://x.com/_SushantJha" target="_blank" style="color: #FDB913; text-decoration: none;">@_SushantJha</a>
+        <a href="https://x.com/_SushantJha" target="_blank" style="color: #DC143C; text-decoration: none;">@_SushantJha</a>
     </div>
 """, unsafe_allow_html=True)
