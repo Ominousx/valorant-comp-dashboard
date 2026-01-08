@@ -1,7 +1,8 @@
-Column 1,Player,Rounds,Kills,Deaths,Assists,ACS,Agent,FK,Plants,Defuses,FD,FK+FD,FBSR,FKPR,KPR,Date,K+A PR,Atk_Entry,Multi_Kills,Anchor_Time,Result,KAST
+Column 1,Player,Rounds,Kills,Deaths,Assists,ACS,Agent,FK,Plants,Defuses,FD,FK+FD,FBSR,FKPR,KPR,Date,K+A PR,Atk_Entry,Multi_Kills,Anchor_Time,Result,KAST,FD Def
 Breeze,Spring,24,19,20,4,231,Yoru,5,0,0,1,6,0.833333333,0.208333333,0.791666667,01/08/26,0.958333333,0.64,0.25,,Loss,0,0
 Breeze,jowa,24,19,13,7,216,Tejo,2,4,1,1,3,0.666666667,0.083333333,0.791666667,01/08/26,1.083333333,0,0.33,,Loss,0,0
 Breeze,autumN,24,17,18,8,191,Omen,0,2,0,4,4,0,0,0.708333333,01/08/26,1.041666667,0,0.25,,Loss,0,2
 Breeze,Yosemite,24,15,17,5,178,Viper,4,0,0,5,9,0.444444444,0.166666667,0.625,01/08/26,0.833333333,0,0.17,0.34,Loss,0,4
 Breeze,SiuFatBB,24,3,18,3,41,Sova,0,3,0,2,2,0,0,0.125,01/08/26,0.25,0,0.08,,Loss,0,1
+
 
