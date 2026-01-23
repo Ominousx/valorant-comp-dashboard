@@ -96,7 +96,6 @@ def load_svg_icon(filepath, size=28, color="#FFFFFF"):
     return svg
 
 
-tab_names = ["Overview", "Compositions", "Insights", "Pistol", "Stats", "Compare"]
 icons = [
     load_svg_icon("assets/chart-simple-solid-full.svg"),
     load_svg_icon("assets/cubes-solid-full.svg"),
@@ -106,31 +105,81 @@ icons = [
     load_svg_icon("assets/compress-solid-full.svg")
 ]
 
+tab_names = ["Overview", "Compositions", "Insights", "Pistol", "Stats", "Compare"]
+
 
 # Custom CSS
 st.markdown("""
     <style>
-    .icon-only-tab {
+    .icon-tab-container {
+        position: relative;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .icon-display {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 16px;
-        background: rgba(17, 24, 39, 0.6);
-        border-radius: 8px;
+        margin-bottom: 8px;
         cursor: pointer;
+        padding: 8px;
+        border-radius: 8px;
         transition: all 0.2s ease;
-        border: 2px solid transparent;
     }
     
-    .icon-only-tab:hover {
+    .icon-display:hover {
         background: rgba(253, 185, 19, 0.1);
-        border-color: #FDB913;
         transform: translateY(-2px);
     }
     
-    .icon-only-tab.active {
-        background: linear-gradient(135deg, #FDB913, #ff9500);
-        border-color: #FDB913;
+    .icon-display.active {
+        background: #FDB913 !important;
+    }
+    
+    .icon-display.active svg {
+        fill: white !important;
+    }
+    
+    button[data-testid*="icon_tab"] {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+    }
+    
+    button[data-testid*="icon_tab"]:hover {
+        background: rgba(253, 185, 19, 0.1) !important;
+        border-color: #FDB913 !important;
+        transform: translateY(-2px);
+        transition: all 0.2s ease;
+    }
+    
+    button[data-testid*="icon_tab"].active {
+        background: #FDB913 !important;
+        border-color: #FDB913 !important;
+        color: white !important;
+    }
+    
+    button[data-testid*="icon_tab"].active * {
+        color: white !important;
+    }
+    
+    button[data-testid*="icon_tab"].active > div {
+        color: white !important;
+    }
+    
+    button[data-testid*="icon_tab"].active p {
+        color: white !important;
+    }
+    
+    button[data-testid*="icon_tab"].active span {
+        color: white !important;
+    }
+    
+    .icon-display svg {
+        pointer-events: none;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -142,15 +191,33 @@ for idx, (col, icon, name) in enumerate(zip(cols, icons, tab_names)):
         is_active = st.session_state.active_tab == idx
         active_class = "active" if is_active else ""
         
-        if st.button(name, key=f"icon_tab_{idx}", use_container_width=True):
-            st.session_state.active_tab = idx
-            st.rerun()
+        st.markdown(f'<div class="icon-tab-container">', unsafe_allow_html=True)
         
+        # Icon displayed above the button
         st.markdown(f"""
-            <div class="icon-only-tab {active_class}" title="{name}">
+            <div class="icon-display {active_class}" onclick="document.querySelector('button[data-testid*=\\'icon_tab_{idx}\\']').click()">
                 {icon}
             </div>
         """, unsafe_allow_html=True)
+        
+        if st.button(name, key=f"icon_tab_{idx}", use_container_width=True, help=name):
+            st.session_state.active_tab = idx
+            st.rerun()
+        
+        # Add active class to button using JavaScript
+        if is_active:
+            st.markdown(f"""
+                <script>
+                (function() {{
+                    const button = document.querySelector('button[data-testid*="icon_tab_{idx}"]');
+                    if (button) {{
+                        button.classList.add('active');
+                    }}
+                }})();
+                </script>
+            """, unsafe_allow_html=True)
+        
+        st.markdown(f'</div>', unsafe_allow_html=True)
 
 st.markdown("---")
 
