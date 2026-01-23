@@ -84,8 +84,75 @@ except Exception as e:
     score_df = pd.DataFrame()
     st.warning(f"⚠️ Couldn't load cleaned_score.csv: {e}")
 
-tabs = st.tabs(["📊 Overview", "🧩 Map Composition Win Rates", "📈 Round Insights","🔫 Pistol Insights","🔢 Player Stats","🆚 Player Comparison"])
+# Function to load and style SVG icons
+def load_svg_icon(filepath, size=28, color="#FFFFFF"):
+    with open(filepath, 'r') as f:
+        svg = f.read()
+    svg = svg.replace('<svg', f'<svg width="{size}" height="{size}" style="fill: {color};"')
+    return svg
 
+# Load all tab icons
+overview_icon = load_svg_icon("assets/chart-simple-solid-full.svg")
+comp_icon = load_svg_icon("assets/cubes-solid-full.svg")
+insights_icon = load_svg_icon("assets/chart-line-solid-full.svg")
+pistol_icon = load_svg_icon("assets/gun-solid-full.svg")
+stats_icon = load_svg_icon("assets/list-ol-solid-full.svg")
+compare_icon = load_svg_icon("assets/compress-solid-full.svg")
+
+# CSS for perfect alignment
+st.markdown("""
+    <style>
+    /* Force all tabs to be equal width */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        flex: 1;
+        min-width: 0;
+        justify-content: center;
+    }
+    
+    /* Icon container matching tab layout */
+    .custom-tab-icons {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 5px;
+        padding: 0 8px;
+    }
+    
+    .icon-item {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px 24px;
+        flex: 1;
+        min-width: 0;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Display icons
+st.markdown(f"""
+    <div class="custom-tab-icons">
+        <div class="icon-item">{overview_icon}</div>
+        <div class="icon-item">{comp_icon}</div>
+        <div class="icon-item">{insights_icon}</div>
+        <div class="icon-item">{pistol_icon}</div>
+        <div class="icon-item">{stats_icon}</div>
+        <div class="icon-item">{compare_icon}</div>
+    </div>
+""", unsafe_allow_html=True)
+
+# Create tabs
+tabs = st.tabs([
+    "Overview", 
+    "Map Compositions", 
+    "Round Insights",
+    "Pistol Insights",
+    "Player Stats",
+    "Comparison"
+])
 # 📊 OVERVIEW TAB
 with tabs[0]:
     st.markdown("### 📅 Filter by Date Range")
