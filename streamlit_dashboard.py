@@ -84,77 +84,83 @@ except Exception as e:
     score_df = pd.DataFrame()
     st.warning(f"⚠️ Couldn't load cleaned_score.csv: {e}")
 
-# Function to load and style SVG icons
+# Initialize session state
+if 'active_tab' not in st.session_state:
+    st.session_state.active_tab = 0
+
+# Load icons
 def load_svg_icon(filepath, size=28, color="#FFFFFF"):
     with open(filepath, 'r') as f:
         svg = f.read()
     svg = svg.replace('<svg', f'<svg width="{size}" height="{size}" style="fill: {color};"')
     return svg
 
-# Load all tab icons
-overview_icon = load_svg_icon("assets/chart-simple-solid-full.svg")
-comp_icon = load_svg_icon("assets/cubes-solid-full.svg")
-insights_icon = load_svg_icon("assets/chart-line-solid-full.svg")
-pistol_icon = load_svg_icon("assets/gun-solid-full.svg")
-stats_icon = load_svg_icon("assets/list-ol-solid-full.svg")
-compare_icon = load_svg_icon("assets/compress-solid-full.svg")
 
-# CSS for perfect alignment
+tab_names = ["Overview", "Compositions", "Insights", "Pistol", "Stats", "Compare"]
+icons = [
+    load_svg_icon("assets/chart-simple-solid-full.svg"),
+    load_svg_icon("assets/cubes-solid-full.svg"),
+    load_svg_icon("assets/chart-line-solid-full.svg"),
+    load_svg_icon("assets/gun-solid-full.svg"),
+    load_svg_icon("assets/list-ol-solid-full.svg"),
+    load_svg_icon("assets/compress-solid-full.svg")
+]
+
+
+# Custom CSS
 st.markdown("""
     <style>
-    /* Force all tabs to be equal width */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        flex: 1;
-        min-width: 0;
-        justify-content: center;
-    }
-    
-    /* Icon container matching tab layout */
-    .custom-tab-icons {
-        display: flex;
-        gap: 8px;
-        margin-bottom: 5px;
-        padding: 0 8px;
-    }
-    
-    .icon-item {
+    .icon-only-tab {
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 8px 24px;
-        flex: 1;
-        min-width: 0;
+        padding: 16px;
+        background: rgba(17, 24, 39, 0.6);
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+    }
+    
+    .icon-only-tab:hover {
+        background: rgba(253, 185, 19, 0.1);
+        border-color: #FDB913;
+        transform: translateY(-2px);
+    }
+    
+    .icon-only-tab.active {
+        background: linear-gradient(135deg, #FDB913, #ff9500);
+        border-color: #FDB913;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Display icons
-st.markdown(f"""
-    <div class="custom-tab-icons">
-        <div class="icon-item">{overview_icon}</div>
-        <div class="icon-item">{comp_icon}</div>
-        <div class="icon-item">{insights_icon}</div>
-        <div class="icon-item">{pistol_icon}</div>
-        <div class="icon-item">{stats_icon}</div>
-        <div class="icon-item">{compare_icon}</div>
-    </div>
-""", unsafe_allow_html=True)
+# Create icon buttons
+cols = st.columns(6)
+for idx, (col, icon, name) in enumerate(zip(cols, icons, tab_names)):
+    with col:
+        is_active = st.session_state.active_tab == idx
+        active_class = "active" if is_active else ""
+        
+        if st.button(name, key=f"icon_tab_{idx}", use_container_width=True):
+            st.session_state.active_tab = idx
+            st.rerun()
+        
+        st.markdown(f"""
+            <div class="icon-only-tab {active_class}" title="{name}">
+                {icon}
+            </div>
+        """, unsafe_allow_html=True)
 
-# Create tabs
-tabs = st.tabs([
-    "Overview", 
-    "Map Compositions", 
-    "Round Insights",
-    "Pistol Insights",
-    "Player Stats",
-    "Comparison"
-])
-# 📊 OVERVIEW TAB
-with tabs[0]:
+st.markdown("---")
+
+# Content based on active tab
+if st.session_state.active_tab == 0:
+    st.markdown("### Overview Content")
+    # Your overview code here
+elif st.session_state.active_tab == 1:
+    st.markdown("### Map Compositions Content")
+if st.session_state.active_tab == 0:
     st.markdown("### 📅 Filter by Date Range")
     overview_dates = sorted(score_df['Date'].dropna().unique())
     date_col1, date_col2 = st.columns(2)
@@ -225,7 +231,7 @@ with tabs[0]:
 ### --- Composition Win Rate Chart (Styled like rib.gg) ---
 
 # This block should only be inside the Map Composition tab
-with tabs[1]:
+if st.session_state.active_tab == 1:
     st.subheader("Top 5-agent Composition Win Rates by Map")
     if not form_df.empty:
         valid_maps = []
@@ -413,7 +419,7 @@ with tabs[1]:
             st.info(f"No composition data available for {selected_map}")
 
 # 📈 ROUND INSIGHTS TAB
-with tabs[2]:
+if st.session_state.active_tab == 2:
     st.subheader("📈 Round Insights from cleaned_score.csv")
     if not score_df.empty:
         maps = sorted(score_df['Map'].dropna().unique())
@@ -645,7 +651,7 @@ from datetime import datetime
 from datetime import datetime
 
 # 📊 GRAPH INSIGHTS TAB
-with tabs[3]:
+if st.session_state.active_tab == 3:
     st.subheader("🔫 Pistol Round Win Rate by Map")
 
     if not score_df.empty:
@@ -809,7 +815,7 @@ with tabs[3]:
 
 
 ## 🔢 PLAYER STATS TAB
-with tabs[4]:
+if st.session_state.active_tab == 4:
     st.subheader("🧑‍💼 Player Agent Stats")
 
     try:
@@ -931,90 +937,8 @@ with tabs[4]:
         else:
             st.info("No ACS data for selected filters.")
 
-
-# --- Post-Plant Success Rate Bar Chart ---
-
-if 'Atk_PP_Success' in summary.columns and 'Def_PP_Success' in summary.columns:
-
-    st.markdown("### 📊 Post-Plant Success Rate by Map")
-
-    label_map = {
-        "Atk_PP_Success": "Post Plant",
-        "Def_PP_Success": "Retakes"
-    }
-
-    sort_label = st.selectbox("Sort by", list(label_map.values()), index=0)
-    sort_col = [k for k, v in label_map.items() if v == sort_label][0]
-    sort_order = st.radio("Order", ["Descending", "Ascending"], horizontal=True)
-    ascending = sort_order == "Ascending"
-
-    pp_df = summary[['Map', 'Atk_PP_Success', 'Def_PP_Success']].copy()
-    pp_df = pp_df.fillna(0)
-
-    pp_df['Atk_PP_Success'] = pd.to_numeric(pp_df['Atk_PP_Success'], errors='coerce')
-    pp_df['Def_PP_Success'] = pd.to_numeric(pp_df['Def_PP_Success'], errors='coerce')
-    if pp_df['Atk_PP_Success'].max() <= 1.0:
-        pp_df['Atk_PP_Success'] *= 100
-        pp_df['Def_PP_Success'] *= 100
-
-    # Sort before renaming columns
-    pp_df = pp_df.sort_values(by=sort_col, ascending=ascending)
-    pp_df['Map'] = pd.Categorical(pp_df['Map'], categories=pp_df['Map'], ordered=True)
-
-    # Rename for nicer legend labels
-    pp_df.rename(columns=label_map, inplace=True)
-
-    pp_df_long = pp_df.melt(id_vars='Map', var_name='Side', value_name='Post-Plant Success (%)')
-
-    # Plot
-    fig_pp = px.bar(
-        pp_df_long,
-        x='Map',
-        y='Post-Plant Success (%)',
-        color='Side',
-        barmode='stack',
-        text=pp_df_long['Post-Plant Success (%)'].apply(lambda x: f"{x:.1f}%"),
-        title="Post-Plant Success Rate (Stacked Atk + Def)",
-        color_discrete_map={
-            'Post Plant': '#FDB913',
-            'Retakes': '#ffffff'
-        }
-    )
-
-    fig_pp.update_traces(
-        textposition='inside',
-        marker_line_color='#333333',
-        marker_line_width=1.2
-    )
-
-    fig_pp.update_layout(
-        plot_bgcolor='#000000',
-        paper_bgcolor='#000000',
-        font=dict(family='Inter, sans-serif', size=14, color='#FDB913'),
-        title_font=dict(size=20, color='#FDB913'),
-        xaxis=dict(
-            title='Map',
-            title_font=dict(size=16, color='#FDB913'),
-            tickfont=dict(size=14, color='#ffffff'),
-            tickangle=-25,
-            gridcolor='#333333'
-        ),
-        yaxis=dict(
-            title='Post-Plant Success (%)',
-            title_font=dict(size=16, color='#FDB913'),
-            tickfont=dict(size=14, color='#ffffff'),
-            gridcolor='#333333',
-            range=[0, 100]
-        ),
-        legend=dict(
-            font=dict(size=13, color='#ffffff')
-        )
-    )
-
-    st.plotly_chart(fig_pp, use_container_width=True)
-
 # 📊 PLAYER COMPARISON TAB
-with tabs[5]:
+if st.session_state.active_tab == 5:
     st.subheader("🎚 Player vs VCT Benchmark Comparison")
 
     try:
