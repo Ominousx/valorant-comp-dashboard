@@ -3,7 +3,6 @@ import pandas as pd
 from PIL import Image
 import os
 import plotly.express as px
-from data_cleaner import clean_scrim_form
 import base64
 
 # Hardcoded credentials
@@ -117,6 +116,7 @@ st.markdown("""
         display: flex;
         flex-direction: column;
         align-items: center;
+        margin-bottom: 0.375rem !important;
     }
     
     .icon-display {
@@ -181,6 +181,25 @@ st.markdown("""
     .icon-display svg {
         pointer-events: none;
     }
+    
+    /* Reduce spacing after tab navigation - reduced by 75% total */
+    hr {
+        margin-top: 0.375rem !important;
+        margin-bottom: 0.375rem !important;
+        border: none !important;
+        height: 1px !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    /* Reduce spacing after navigation buttons */
+    div[data-testid="stHorizontalBlock"] {
+        margin-bottom: 0.375rem !important;
+    }
+    
+    /* Reduce spacing for content after separator */
+    hr + div {
+        margin-top: 0.375rem !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -219,14 +238,9 @@ for idx, (col, icon, name) in enumerate(zip(cols, icons, tab_names)):
         
         st.markdown(f'</div>', unsafe_allow_html=True)
 
-st.markdown("---")
+st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
 
 # Content based on active tab
-if st.session_state.active_tab == 0:
-    st.markdown("### Overview Content")
-    # Your overview code here
-elif st.session_state.active_tab == 1:
-    st.markdown("### Map Compositions Content")
 if st.session_state.active_tab == 0:
     st.markdown("### 📅 Filter by Date Range")
     overview_dates = sorted(score_df['Date'].dropna().unique())
@@ -299,7 +313,7 @@ if st.session_state.active_tab == 0:
 
 # This block should only be inside the Map Composition tab
 if st.session_state.active_tab == 1:
-    st.subheader("Top 5-agent Composition Win Rates by Map")
+    st.subheader("🥷Top 5-agent Composition Win Rates by Map")
     if not form_df.empty:
         valid_maps = []
         for i in range(0, len(form_df) - 4, 5):
@@ -487,7 +501,7 @@ if st.session_state.active_tab == 1:
 
 # 📈 ROUND INSIGHTS TAB
 if st.session_state.active_tab == 2:
-    st.subheader("📈 Round Insights from cleaned_score.csv")
+    st.subheader("📈 Round Insights")
     if not score_df.empty:
         maps = sorted(score_df['Map'].dropna().unique())
         dates = sorted(score_df['Date'].dropna().unique())
