@@ -35,6 +35,12 @@ st.set_page_config(page_title="Valorant Scrim Dashboard", layout="wide")
 encoded_bg = get_base64_image("wallp.png")
 st.markdown(f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
+    
+    * {{
+        font-family: 'Rajdhani', sans-serif !important;
+    }}
+    
     body {{
         background-image: url("data:image/jpg;base64,{encoded_bg}");
         background-size: cover;
@@ -42,24 +48,28 @@ st.markdown(f"""
         background-attachment: fixed;
         background-repeat: no-repeat;
         color: #ffffff;
+        font-family: 'Rajdhani', sans-serif !important;
     }}
 
     .stApp {{
         background-color: rgba(0, 0, 0, 0.85);
+        font-family: 'Rajdhani', sans-serif !important;
     }}
 
     .block-container {{
         padding: 2rem;
         border-radius: 12px;
+        font-family: 'Rajdhani', sans-serif !important;
     }}
 
-    h1, h2, h3, .stTabs, .stButton {{
-        font-family: 'Inter', sans-serif;
+    h1, h2, h3, h4, h5, h6, .stTabs, .stButton, p, div, span, label, input, select, textarea, button {{
+        font-family: 'Rajdhani', sans-serif !important;
         color: #FDB913;
     }}
 
     .stDataFrame, .stTable {{
         background-color: #1a1a1a;
+        font-family: 'Rajdhani', sans-serif !important;
     }}
     </style>
 """, unsafe_allow_html=True)
@@ -288,7 +298,7 @@ if st.session_state.active_tab == 0:
         fig_map_wr.update_layout(
             plot_bgcolor='#000000',
             paper_bgcolor='#000000',
-            font=dict(family='Inter', size=14, color='#FDB913'),
+            font=dict(family='Rajdhani', size=14, color='#FDB913'),
             title_font=dict(size=20, color='#FDB913'),
             yaxis=dict(
                 tickfont=dict(color='#ffffff'),
@@ -639,7 +649,7 @@ if st.session_state.active_tab == 2:
         fig.update_layout(
             plot_bgcolor='#000000',
             paper_bgcolor='#000000',
-            font=dict(color='#FDB913', family='Inter'),
+            font=dict(color='#FDB913', family='Rajdhani'),
             title_font=dict(color='#FDB913', size=20),
             legend_title_text='Side',
             xaxis=dict(tickangle=-25, gridcolor='#333333'),
@@ -702,7 +712,7 @@ if st.session_state.active_tab == 2:
             fig_pp.update_layout(
                 plot_bgcolor='#000000',
                 paper_bgcolor='#000000',
-                font=dict(family='Inter, sans-serif', size=14, color='#FDB913'),
+                font=dict(family='Rajdhani, sans-serif', size=14, color='#FDB913'),
                 title_font=dict(size=20, color='#FDB913'),
                 xaxis=dict(
                     title='Map',
@@ -785,7 +795,7 @@ if st.session_state.active_tab == 3:
         fig_pistol.update_layout(
             plot_bgcolor='#000000',
             paper_bgcolor='#000000',
-            font=dict(family='Inter', size=14, color='#FDB913'),
+            font=dict(family='Rajdhani', size=14, color='#FDB913'),
             title_font=dict(size=20, color='#FDB913'),
             xaxis=dict(tickfont=dict(color='#ffffff'), gridcolor='#333333'),
             yaxis=dict(range=[0, 100], title='Win Rate (%)', title_font=dict(color='#FDB913'), tickfont=dict(color='#ffffff'), gridcolor='#333333')
@@ -844,7 +854,7 @@ if st.session_state.active_tab == 3:
                      fig_pie_win.update_layout(
                          plot_bgcolor='#000000',
                          paper_bgcolor='#000000',
-                         font=dict(family='Inter', size=14, color='#FDB913'),
+                         font=dict(family='Rajdhani', size=14, color='#FDB913'),
                          title_font=dict(size=18, color='#FDB913'),
                          legend=dict(font=dict(color='#ffffff'))
                      )
@@ -884,7 +894,7 @@ if st.session_state.active_tab == 3:
                      fig_pie_loss.update_layout(
                          plot_bgcolor='#000000',
                          paper_bgcolor='#000000',
-                         font=dict(family='Inter', size=14, color='#FDB913'),
+                         font=dict(family='Rajdhani', size=14, color='#FDB913'),
                          title_font=dict(size=18, color='#FDB913'),
                          legend=dict(font=dict(color='#ffffff'))
                      )
@@ -938,13 +948,22 @@ if st.session_state.active_tab == 4:
                 Assists=('Assists', 'sum'),
                 ACS=('ACS', 'mean'),
                 FK=('FK', 'sum'),
-                Plants=('Plants', 'sum')
+                Plants=('Plants', 'sum'),
+                FD=('FD', 'sum'),
+                FD_Def=('FD Def', 'sum')
             ).reset_index()
 
             agent_stats['K/D Ratio'] = agent_stats['Kills'] / agent_stats['Deaths'].replace(0, float('nan'))
             agent_stats['K+A per Round'] = (agent_stats['Kills'] + agent_stats['Assists']) / agent_stats['Rounds'].replace(0, float('nan'))
+            
+            # Calculate FK-FD (First Kill minus First Death)
+            agent_stats['FK-FD'] = agent_stats['FK'] - agent_stats['FD']
+            
+            # Calculate % of FD on Defense
+            agent_stats['% FD on Def'] = (agent_stats['FD_Def'] / agent_stats['FD'].replace(0, float('nan'))) * 100
+            agent_stats['% FD on Def'] = agent_stats['% FD on Def'].fillna(0)
 
-            display_df = agent_stats.round(2)[['Agent', 'Rounds', 'Kills', 'Deaths', 'Assists', 'ACS', 'FK', 'Plants', 'K/D Ratio', 'K+A per Round']]
+            display_df = agent_stats.round(2)[['Agent', 'Rounds', 'Kills', 'Deaths', 'Assists', 'ACS', 'FK-FD', 'Plants', '% FD on Def', 'K/D Ratio', 'K+A per Round']]
 
             st.markdown(f"### 🔍 Agent Performance for {selected_player} from {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
             st.dataframe(display_df, use_container_width=True)
@@ -1209,7 +1228,7 @@ if st.session_state.active_tab == 5:
                     legend=dict(font=dict(color="#ffffff")),
                     plot_bgcolor='#000000',
                     paper_bgcolor='#000000',
-                    font=dict(family='Inter', color='#FDB913'),
+                    font=dict(family='Rajdhani', color='#FDB913'),
                     title=dict(text=f"{selected_role} Stats vs VCT Benchmark", font=dict(size=16, color='#FDB913')),
                     margin=dict(l=40, r=40, t=60, b=40)
                 )
@@ -1236,7 +1255,7 @@ st.markdown("""
             color: #FDB913;
             text-align: center;
             font-size: 13px;
-            font-family: Inter, sans-serif;
+            font-family: Rajdhani, sans-serif;
             padding: 0.5rem 0;
             opacity: 0.8;
             z-index: 9999;
