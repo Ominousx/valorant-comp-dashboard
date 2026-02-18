@@ -3,6 +3,7 @@ import pandas as pd
 from PIL import Image
 import os
 import plotly.express as px
+import plotly.graph_objects as go
 import base64
 
 # Hardcoded credentials
@@ -92,6 +93,13 @@ try:
 except Exception as e:
     score_df = pd.DataFrame()
     st.warning(f"⚠️ Couldn't load cleaned_score.csv: {e}")
+
+# Load foracs.csv for win rates by agent by player
+try:
+    foracs_df = pd.read_csv("foracs.csv")
+except Exception as e:
+    foracs_df = pd.DataFrame()
+    st.warning(f"⚠️ Couldn't load foracs.csv: {e}")
 
 # Initialize session state
 if 'active_tab' not in st.session_state:
@@ -508,6 +516,46 @@ if st.session_state.active_tab == 1:
                 st.markdown(composition_html, unsafe_allow_html=True)
         else:
             st.info(f"No composition data available for {selected_map}")
+
+    # --- Win rates by agent by player (heatmap) ---
+    st.subheader("📊 Win Rate by Agent by Player")
+    if not foracs_df.empty and 'Result' in foracs_df.columns:
+        foracs_agg = foracs_df.groupby(['Player', 'Agent']).agg(
+            games=('Result', 'count'),
+            wins=('Result', lambda x: (x.str.strip().str.lower() == 'win').sum())
+        ).reset_index()
+        foracs_agg['Win Rate %'] = (foracs_agg['wins'] / foracs_agg['games'] * 100).round(1)
+        pivot = foracs_agg.pivot_table(index='Player', columns='Agent', values='Win Rate %', aggfunc='mean')
+        pivot = pivot.fillna(0)
+        if not pivot.empty:
+            fig_heat = go.Figure(data=go.Heatmap(
+                z=pivot.values,
+                x=pivot.columns.tolist(),
+                y=pivot.index.tolist(),
+                colorscale=[[0, '#7f1d1d'], [0.5, '#78350f'], [1, '#14532d']],
+                text=[[f"{v:.0f}%" if pd.notna(v) and v != 0 else "" for v in row] for row in pivot.values],
+                texttemplate="%{text}",
+                textfont=dict(family='Rajdhani', size=12, color='white'),
+                hoverongaps=False,
+                hovertemplate="Player: %{y}<br>Agent: %{x}<br>Win Rate: %{z:.1f}%<extra></extra>"
+            ))
+            fig_heat.update_layout(
+                title="Win Rate % by Player and Agent",
+                xaxis=dict(title='Agent', side='bottom', tickangle=-45, tickfont=dict(family='Rajdhani', color='#FDB913')),
+                yaxis=dict(title='Player', tickfont=dict(family='Rajdhani', color='#FDB913'), autorange='reversed'),
+                plot_bgcolor='#000000',
+                paper_bgcolor='#000000',
+                font=dict(family='Rajdhani', color='#FDB913'),
+                title_font=dict(size=18, color='#FDB913'),
+                margin=dict(l=80, r=40, t=60, b=120),
+                height=max(400, 48 * len(pivot.index) + 120),
+                width=max(400, 48 * len(pivot.columns) + 100)
+            )
+            st.plotly_chart(fig_heat, use_container_width=True)
+        else:
+            st.info("No player–agent combinations with data.")
+    else:
+        st.info("No foracs data available for win rate by agent by player.")
 
 # 📈 ROUND INSIGHTS TAB
 if st.session_state.active_tab == 2:
