@@ -261,12 +261,25 @@ st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
 # Content based on active tab
 if st.session_state.active_tab == 0:
     st.markdown("### 📅 Filter by Date Range")
-    overview_dates = sorted(score_df['Date'].dropna().unique())
-    date_col1, date_col2 = st.columns(2)
-    start_date_overview = date_col1.selectbox("Start Date (Overview)", overview_dates, key="overview_start")
-    end_date_overview = date_col2.selectbox("End Date (Overview)", overview_dates, index=len(overview_dates)-1, key="overview_end")
-
-    filtered_score = score_df[(score_df['Date'] >= start_date_overview) & (score_df['Date'] <= end_date_overview)]
+    if not score_df.empty and 'Date' in score_df.columns:
+        score_df['Date'] = pd.to_datetime(score_df['Date'], errors='coerce')
+        min_date = score_df['Date'].min().date()
+        max_date = score_df['Date'].max().date()
+        date_range = st.date_input(
+            "Select Date Range",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date,
+            key="overview_date_range"
+        )
+        if isinstance(date_range, tuple) and len(date_range) == 2:
+            start_date_overview, end_date_overview = date_range
+        else:
+            start_date_overview = end_date_overview = date_range
+        filtered_score = score_df[(score_df['Date'].dt.date >= start_date_overview) & (score_df['Date'].dt.date <= end_date_overview)]
+    else:
+        start_date_overview = end_date_overview = None
+        filtered_score = score_df
 
     st.subheader("Map Overview: Total Games, Wins, Draws, Losses, Win Rate")
     if not filtered_score.empty:
