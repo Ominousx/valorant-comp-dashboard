@@ -561,7 +561,7 @@ if st.session_state.active_tab == 1:
                 x=pivot.columns.tolist(),
                 y=pivot.index.tolist(),
                 customdata=customdata,
-                colorscale=[[0, '#7f1d1d'], [0.5, '#78350f'], [1, '#14532d']],
+                colorscale=[[0, '#fef08a'], [0.35, '#86efac'], [0.65, '#22c55e'], [1, '#14532d']],
                 text=[[f"{v:.0f}%" if pd.notna(v) and v != 0 else "" for v in row] for row in pivot.values],
                 texttemplate="%{text}",
                 textfont=dict(family='Rajdhani', size=12, color='white'),
