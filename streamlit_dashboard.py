@@ -541,32 +541,47 @@ if st.session_state.active_tab == 1:
         pivot = foracs_agg.pivot_table(index='Player', columns='Agent', values='Win Rate %', aggfunc='mean')
         pivot_wins = foracs_agg.pivot_table(index='Player', columns='Agent', values='wins', aggfunc='sum')
         pivot_games = foracs_agg.pivot_table(index='Player', columns='Agent', values='games', aggfunc='sum')
-        pivot = pivot.fillna(0)
         if not pivot.empty:
-            # Build customdata: same shape as pivot, each cell is "wins/games" for hover
+            # Full grid: all players × all agents (not played = -1 for light grey)
+            all_players = sorted(foracs_df['Player'].dropna().unique())
+            all_agents = sorted(foracs_df['Agent'].dropna().unique())
+            pivot = pivot.reindex(index=all_players, columns=all_agents)
+            pivot_wins = pivot_wins.reindex(index=all_players, columns=all_agents)
+            pivot_games = pivot_games.reindex(index=all_players, columns=all_agents)
+            NOT_PLAYED = -1
+            z = pivot.values.copy()
+            z[pd.isna(z)] = NOT_PLAYED
+            z = z.astype(float)
+            # Build customdata: for hover - "Not played" or "Win Rate: X% (w/g)"
             customdata = []
-            for player in pivot.index:
+            for player in all_players:
                 row = []
-                for agent in pivot.columns:
-                    try:
-                        w = pivot_wins.loc[player, agent] if player in pivot_wins.index and agent in pivot_wins.columns else 0
-                        g = pivot_games.loc[player, agent] if player in pivot_games.index and agent in pivot_games.columns else 0
-                        w, g = int(w) if pd.notna(w) else 0, int(g) if pd.notna(g) else 0
-                        row.append(f"{w}/{g}" if g else "-")
-                    except Exception:
-                        row.append("-")
+                for agent in all_agents:
+                    g = pivot_games.loc[player, agent] if pd.notna(pivot_games.loc[player, agent]) else 0
+                    g = int(g)
+                    if g == 0:
+                        row.append("Not played")
+                    else:
+                        w = int(pivot_wins.loc[player, agent]) if pd.notna(pivot_wins.loc[player, agent]) else 0
+                        wr = pivot.loc[player, agent]
+                        wr = float(wr) if pd.notna(wr) else 0
+                        row.append(f"Win Rate: {wr:.0f}% ({w}/{g})")
                 customdata.append(row)
+            # Text: show % only where played
+            text = [[f"{v:.0f}%" if v >= 0 else "" for v in row] for row in z]
             fig_heat = go.Figure(data=go.Heatmap(
-                z=pivot.values,
-                x=pivot.columns.tolist(),
-                y=pivot.index.tolist(),
+                z=z,
+                x=all_agents,
+                y=all_players,
                 customdata=customdata,
-                colorscale=[[0, '#fef08a'], [0.35, '#86efac'], [0.65, '#22c55e'], [1, '#14532d']],
-                text=[[f"{v:.0f}%" if pd.notna(v) and v != 0 else "" for v in row] for row in pivot.values],
+                zmin=NOT_PLAYED,
+                zmax=100,
+                colorscale=[[0, '#9ca3af'], [0.01, '#dc2626'], [0.06, '#fef08a'], [0.36, '#86efac'], [0.66, '#22c55e'], [1, '#14532d']],
+                text=text,
                 texttemplate="%{text}",
                 textfont=dict(family='Rajdhani', size=12, color='white'),
                 hoverongaps=False,
-                hovertemplate="Player: %{y}<br>Agent: %{x}<br>Win Rate: %{z:.1f}% (%{customdata})<extra></extra>"
+                hovertemplate="Player: %{y}<br>Agent: %{x}<br>%{customdata}<extra></extra>"
             ))
             fig_heat.update_layout(
                 title="Win Rate % by Player and Agent",
