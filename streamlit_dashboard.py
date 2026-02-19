@@ -539,18 +539,34 @@ if st.session_state.active_tab == 1:
         ).reset_index()
         foracs_agg['Win Rate %'] = (foracs_agg['wins'] / foracs_agg['games'] * 100).round(1)
         pivot = foracs_agg.pivot_table(index='Player', columns='Agent', values='Win Rate %', aggfunc='mean')
+        pivot_wins = foracs_agg.pivot_table(index='Player', columns='Agent', values='wins', aggfunc='sum')
+        pivot_games = foracs_agg.pivot_table(index='Player', columns='Agent', values='games', aggfunc='sum')
         pivot = pivot.fillna(0)
         if not pivot.empty:
+            # Build customdata: same shape as pivot, each cell is "wins/games" for hover
+            customdata = []
+            for player in pivot.index:
+                row = []
+                for agent in pivot.columns:
+                    try:
+                        w = pivot_wins.loc[player, agent] if player in pivot_wins.index and agent in pivot_wins.columns else 0
+                        g = pivot_games.loc[player, agent] if player in pivot_games.index and agent in pivot_games.columns else 0
+                        w, g = int(w) if pd.notna(w) else 0, int(g) if pd.notna(g) else 0
+                        row.append(f"{w}/{g}" if g else "-")
+                    except Exception:
+                        row.append("-")
+                customdata.append(row)
             fig_heat = go.Figure(data=go.Heatmap(
                 z=pivot.values,
                 x=pivot.columns.tolist(),
                 y=pivot.index.tolist(),
+                customdata=customdata,
                 colorscale=[[0, '#7f1d1d'], [0.5, '#78350f'], [1, '#14532d']],
                 text=[[f"{v:.0f}%" if pd.notna(v) and v != 0 else "" for v in row] for row in pivot.values],
                 texttemplate="%{text}",
                 textfont=dict(family='Rajdhani', size=12, color='white'),
                 hoverongaps=False,
-                hovertemplate="Player: %{y}<br>Agent: %{x}<br>Win Rate: %{z:.1f}%<extra></extra>"
+                hovertemplate="Player: %{y}<br>Agent: %{x}<br>Win Rate: %{z:.1f}% (%{customdata})<extra></extra>"
             ))
             fig_heat.update_layout(
                 title="Win Rate % by Player and Agent",
