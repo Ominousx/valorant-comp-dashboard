@@ -1,0 +1,56 @@
+Date,Team,Map,Start,First Pistol,First Rounds,First Half WR,Second Pistol,Second Rounds,Second Half WR,Atk_PP_Success,Def_PP_Success,Atk 2nd,Def 2nd,Outcome
+03-04-2026,DLT,Bind,Defence,1,9,0.75,0,2,0.17,0.33,0.5,LL,WW,Loss
+03-04-2026,ZETA DIVISION,Bind,Defence,1,10,0.83,0,9,0.75,0.89,0.8,LW,WW,Win
+03-04-2026,VXG,Bind,Attack,0,6,0.5,0,6,0.5,0.78,0.32,LW,LL,Draw
+03-05-2026,MURASH,Pearl,Attack,1,10,0.83,1,6,0.5,0.92,0,WW,WW,Win
+03-05-2026,DLT,Pearl,Defence,0,5,0.42,0,3,0.25,0.67,0.3,LL,LL,Loss
+03-06-2026,DFM,Breeze,Attack,0,0,0,1,6,0.5,0,0.38,LL,WW,Loss
+03-06-2026,VXG,Pearl,Attack,1,8,0.67,1,8,0.67,0.64,0.86,WW,WW,Win
+03-06-2026,VXG,Breeze,Attack,0,9,0.75,1,7,0.58,0.9,0.29,LW,WW,Win
+03-09-2026,Nova,Haven,Defence,1,6,0.5,0,8,0.67,0.57,0.4,LW,WW,Win
+03-09-2026,SOLATI,Haven,Attack,1,6,0.5,1,8,0.67,0.57,0.3,WW,WW,Win
+03-10-2026,UR,Haven,Attack,0,3,0.25,0,3,0.25,0.4,0.27,LL,LL,Loss
+03-10-2026,Weibo,Haven,Attack,1,9,0.75,1,7,0.58,0.8,0.3,WW,WW,Win
+03-11-2026,NiP,Haven,Defence,1,9,0.75,1,6,0.5,0.34,0.75,WW,WL,Win
+03-11-2026,MURASH,Haven,Attack,0,6,0.5,0,7,0.58,0.6,0.29,LL,LL,Win
+03-11-2026,ALG,Haven,Defence,0,8,0.67,1,9,0.75,0.73,0.5,WW,LL,Win
+03-11-2026,Varrel,Haven,Defence,1,6,0.5,1,6,0.5,0.6,0.14,WW,WW,Draw
+03-12-2026,REJECT,Haven,Attack,1,10,0.83,1,8,0.67,1,0.33,WW,WW,Win
+03-12-2026,KBG,Haven,Attack,1,10,0.83,0,8,0.67,1,0.57,WW,LL,Win
+03-12-2026,DetonatioN,Haven,Defence,1,7,0.58,1,7,0.58,0.77,0.29,WW,WW,Win
+03-12-2026,RRQ,Bind,Attack,1,8,0.67,0,2,0.17,0.8,0.09,WW,LL,Loss
+03-12-2026,TEC,Bind,Attack,1,5,0.42,0,9,0.75,1,0.17,WW,LL,Win
+03-13-2026,ALG,Bind,Attack,0,6,0.5,1,9,0.75,0.86,0.5,LL,WW,Win
+03-13-2026,KBG,Bind,Attack,1,11,0.92,0,1,0.08,1,0.1,WW,LL,Draw
+03-13-2026,TYLOO,Bind,Attack,0,8,0.67,1,5,0.42,0.73,0,LW,WW,Win
+03-13-2026,DRX,Pearl,Attack,0,4,0.33,1,5,0.42,1,0.22,LL,WW,Loss
+03-13-2026,TEC,Haven,Defence,0,7,0.58,0,6,0.5,0.66,0.38,LW,LL,Win
+03-13-2026,Nova,Pearl,Attack,1,5,0.42,0,2,0.17,0.8,0.1,WW,LL,Loss
+03-14-2026,Varrel,Bind,Defence,1,6,0.5,0,5,0.42,0.44,0.14,LL,WL,Loss
+03-14-2026,BOOM,Pearl,Attack,0,5,0.42,0,7,0.58,1,0.17,LL,LL,Draw
+03-14-2026,Aura,Pearl,Defence,1,8,0.67,1,10,0.83,0.9,0.2,WW,WW,Win
+03-14-2026,Xerxia,Pearl,Defence,1,9,0.75,1,7,0.58,0.88,0.6,WW,WW,Win
+03-15-2026,ONSIDE,Breeze,Defence,0,6,0.5,1,4,0.33,0.5,0.29,WL,LL,Loss
+03-15-2026,TEC,Breeze,Defence,1,4,0.33,0,6,0.5,0.57,0,LL,WW,Loss
+03-15-2026,ACE,Split,Defence,1,9,0.75,1,10,0.83,1,0.25,WW,WW,Win
+03-15-2026,ONSIDE,Split,Defence,0,5,0.42,1,8,0.67,0.78,0.24,WW,LL,Win
+03-19-2026,ZETA DIVISION,Breeze,Attack,1,8,0.67,1,7,0.58,0.77,0.44,WW,WL,Win
+03-19-2026,Le Crapaud,Breeze,Attack,1,11,0.92,1,10,0.83,1,0.57,WW,WW,Win
+03-19-2026,UR,Breeze,Defence,1,4,0.33,0,7,0.58,0.7,0.22,WW,LW,Loss
+03-19-2026,T1,Breeze,Attack,1,9,0.75,1,5,0.42,0.86,0.25,WW,WW,Win
+03-19-2026,TYLOO,Pearl,Attack,0,4,0.33,1,9,0.75,0.57,0.25,LL,WW,Win
+03-19-2026,Weibo,Breeze,Attack,1,7,0.58,0,4,0.33,0.64,0.18,WL,LL,Loss
+03-20-2026,KBG,Breeze,Attack,1,9,0.75,0,3,0.25,0.82,0.2,WW,LL,Draw
+03-20-2026,T1,Lotus,Defence,1,5,0.42,1,6,0.5,0.75,0.28,WL,WW,Loss
+03-20-2026,KBG,Lotus,Defence,1,5,0.42,0,3,0.25,0.33,0,LL,WW,Loss
+03-20-2026,GR,Breeze,Attack,1,9,0.75,0,9,0.75,0.75,0.4,WW,LW,Win
+03-20-2026,UR,Lotus,Defence,0,9,0.75,0,5,0.42,0.63,0,LL,LL,Loss
+03-20-2026,UR,Breeze,Defence,0,5,0.42,1,7,0.58,0.78,0.3,WW,LL,Draw
+03-21-2026,Gen.G,Lotus,Defence,0,2,0.17,0,6,0.5,0.7,0.09,LL,LL,Loss
+03-21-2026,SDG,Lotus,Attack,0,3,0.25,1,6,0.5,0.7,0.24,LL,WW,Loss
+03-21-2026,EGG,Lotus,Defence,0,3,0.25,1,8,0.67,0.67,0.11,WL,LL,Loss
+03-21-2026,KBG,Lotus,Attack,0,7,0.58,1,6,0.5,0.78,0.29,LW,WW,Win
+03-24-2026,KBG,Lotus,Attack,0,8,0.67,0,5,0.42,0.75,0.29,LL,LL,Win
+03-24-2026,EGG,Lotus,Defence,1,9,0.75,0,6,0.5,0.83,0,LL,WW,Win
+03-24-2026,T1,Lotus,Attack,0,2,0.17,1,10,0.83,0.17,0.71,LL,WW,Draw
+03-24-2026,Jade,Lotus,Attack,0,8,0.67,0,5,0.42,0.67,0.17,LW,LL,Win
