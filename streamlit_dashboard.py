@@ -7,8 +7,8 @@ import plotly.graph_objects as go
 import base64
 
 # Hardcoded credentials
-USERNAME = "admin"
-PASSWORD = "wolves123"
+USERNAME = "moon"
+PASSWORD = "blehbleh"
 
 # Login logic
 if "logged_in" not in st.session_state:
