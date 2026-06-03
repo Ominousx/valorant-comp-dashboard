@@ -8,7 +8,7 @@ import base64
 
 # ── Auth ───────────────────────────────────────────────────────────────────────
 USERNAME = "moon"
-PASSWORD = "blehbleh"
+PASSWORD = "bleh"
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
