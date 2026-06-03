@@ -63,7 +63,7 @@ except Exception as e:
     st.warning(f"⚠️ Couldn't load form.csv: {e}")
 
 @st.cache_data
-def load_and_aggregate_matches(path="Advanced_Data_-_Sheet1.csv"):
+def load_and_aggregate_matches(path="Advanced_Data-_Sheet1.csv"):
     """Read round-level data and aggregate into match-level rows."""
     raw = pd.read_csv(path)
     raw.columns = raw.columns.str.strip()
@@ -147,7 +147,7 @@ def load_and_aggregate_matches(path="Advanced_Data_-_Sheet1.csv"):
     return out
 
 try:
-    score_df = load_and_aggregate_matches("Advanced_Data_-_Sheet1.csv")
+    score_df = load_and_aggregate_matches("Advanced_Data-_Sheet1.csv")
     score_df['Date'] = pd.to_datetime(score_df['Date'], errors='coerce')
     if 'Tier' in score_df.columns:
         score_df['Tier'] = pd.to_numeric(score_df['Tier'], errors='coerce').fillna(1).astype(int)
@@ -155,7 +155,7 @@ try:
         score_df['Tier'] = 1
 except Exception as e:
     score_df = pd.DataFrame()
-    st.warning(f"⚠️ Couldn't load/aggregate Advanced_Data_-_Sheet1.csv: {e}")
+    st.warning(f"⚠️ Couldn't load/aggregate Advanced_Data-_Sheet1.csv: {e}")
 
 try:
     foracs_df = pd.read_csv("foracs.csv")
