@@ -146,6 +146,23 @@ def load_and_aggregate_matches(path="Advanced_Data-_Sheet1.csv"):
     out = out[[c for c in col_order if c in out.columns]]
     return out
 
+
+@st.cache_data
+def load_raw_rounds(path="Advanced_Data-_Sheet1.csv"):
+    """Return cleaned round-level data for round-grain analyses (e.g. site post-plant)."""
+    raw = pd.read_csv(path)
+    raw.columns = raw.columns.str.strip()
+    for col in ['Result', 'Side', 'Site', 'Plant XvY', 'Pistol', 'Team', 'Map']:
+        if col in raw.columns:
+            raw[col] = raw[col].astype(str).str.strip().replace('nan', '')
+    if 'Date' in raw.columns:
+        raw['Date'] = pd.to_datetime(raw['Date'], errors='coerce')
+    if 'Tier' in raw.columns:
+        raw['Tier'] = pd.to_numeric(raw['Tier'], errors='coerce')
+    # Mark plant rounds
+    raw['Planted'] = raw['Time at Plant'].notna() & (raw['Time at Plant'].astype(str).str.strip() != '')
+    return raw
+
 try:
     score_df = load_and_aggregate_matches("Advanced_Data-_Sheet1.csv")
     score_df['Date'] = pd.to_datetime(score_df['Date'], errors='coerce')
@@ -153,8 +170,10 @@ try:
         score_df['Tier'] = pd.to_numeric(score_df['Tier'], errors='coerce').fillna(1).astype(int)
     else:
         score_df['Tier'] = 1
+    rounds_df = load_raw_rounds("Advanced_Data-_Sheet1.csv")
 except Exception as e:
     score_df = pd.DataFrame()
+    rounds_df = pd.DataFrame()
     st.warning(f"⚠️ Couldn't load/aggregate Advanced_Data-_Sheet1.csv: {e}")
 
 try:
@@ -644,73 +663,83 @@ if st.session_state.active_tab == 2:
             )
             st.plotly_chart(fig_pp, use_container_width=True)
 
-        # ── Site-wise Post-Plant Breakdown ────────────────────────────────────
-        site_cols = ['Atk_PP_A', 'Atk_PP_B', 'Atk_PP_C', 'Def_PP_A', 'Def_PP_B', 'Def_PP_C']
-        has_site_data = any(c in filtered_df.columns for c in site_cols)
-
-        if has_site_data:
+        # ── Site-wise Post-Plant Breakdown (uses round-level data) ────────────
+        if not rounds_df.empty:
             st.markdown("### 📍 Post-Plant Success by Site")
-            maps_with_site = sorted(filtered_df['Map'].dropna().unique())
-            selected_map_site = st.selectbox(
-                "Select map for site breakdown:", maps_with_site, key="site_breakdown_map"
-            )
-            site_df = filtered_df[filtered_df['Map'] == selected_map_site].copy()
 
-            rows = []
-            for site in ['A', 'B', 'C']:
-                atk_col = f'Atk_PP_{site}'
-                def_col = f'Def_PP_{site}'
-                atk_vals = pd.to_numeric(site_df[atk_col], errors='coerce').dropna() if atk_col in site_df.columns else pd.Series(dtype=float)
-                def_vals = pd.to_numeric(site_df[def_col], errors='coerce').dropna() if def_col in site_df.columns else pd.Series(dtype=float)
-                if len(atk_vals) > 0 or len(def_vals) > 0:
-                    rows.append({
-                        'Site': f'Site {site}',
-                        'Post Plant (Atk)': round(atk_vals.mean() * 100, 1) if len(atk_vals) > 0 else None,
-                        'Retake (Def)':     round(def_vals.mean() * 100, 1) if len(def_vals) > 0 else None,
-                        'Atk Rounds': len(atk_vals),
-                        'Def Rounds': len(def_vals),
-                    })
+            # Filter round-level data by selected tiers + map + date range
+            rd = rounds_df[rounds_df['Tier'].fillna(1).astype(int).isin(selected_tiers)].copy() if 'Tier' in rounds_df.columns else rounds_df.copy()
+            if selected_map != "All":
+                rd = rd[rd['Map'] == selected_map]
+            if start_date and end_date:
+                rd = rd[(rd['Date'] >= pd.Timestamp(start_date)) & (rd['Date'] <= pd.Timestamp(end_date))]
 
-            if rows:
-                site_summary = pd.DataFrame(rows)
-                site_long = site_summary.melt(
-                    id_vars=['Site', 'Atk Rounds', 'Def Rounds'],
-                    value_vars=['Post Plant (Atk)', 'Retake (Def)'],
-                    var_name='Type', value_name='Win Rate (%)'
-                ).dropna(subset=['Win Rate (%)'])
-
-                def make_label(row):
-                    n = row['Atk Rounds'] if row['Type'] == 'Post Plant (Atk)' else row['Def Rounds']
-                    return f"{row['Win Rate (%)']:.0f}%\n(n={n})"
-
-                site_long['Label'] = site_long.apply(make_label, axis=1)
-                fig_site = px.bar(
-                    site_long, x='Site', y='Win Rate (%)', color='Type', barmode='group',
-                    text='Label',
-                    color_discrete_map={'Post Plant (Atk)': '#FDB913', 'Retake (Def)': '#60a5fa'},
-                    title=f"Post-Plant Win Rate by Site — {selected_map_site}"
+            maps_with_site = sorted(rd['Map'].dropna().unique())
+            if maps_with_site:
+                selected_map_site = st.selectbox(
+                    "Select map for site breakdown:", maps_with_site, key="site_breakdown_map"
                 )
-                fig_site.update_traces(textposition='outside', marker_line_color='#333', marker_line_width=1)
-                fig_site.add_hline(y=50, line_dash='dash', line_color='#666',
-                    annotation_text='50%', annotation_font_color='#aaa')
-                fig_site.update_layout(
-                    plot_bgcolor='#000000', paper_bgcolor='#000000',
-                    font=dict(family='Rajdhani', color='#FDB913'),
-                    title_font=dict(size=18, color='#FDB913'),
-                    xaxis=dict(tickfont=dict(color='#fff'), gridcolor='#333'),
-                    yaxis=dict(range=[0, 115], tickfont=dict(color='#fff'), gridcolor='#333', title='Win Rate (%)'),
-                    legend=dict(font=dict(color='#fff')),
-                    bargap=0.25
-                )
-                st.plotly_chart(fig_site, use_container_width=True)
+                site_rd = rd[(rd['Map'] == selected_map_site) & (rd['Planted'] == True)]
 
-                display_site = site_summary.copy()
-                for col in ['Post Plant (Atk)', 'Retake (Def)']:
-                    display_site[col] = display_site[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "—")
-                display_site = display_site.rename(columns={'Atk Rounds': 'Atk Plant Rounds', 'Def Rounds': 'Def Plant Rounds'})
-                st.dataframe(display_site, use_container_width=True, hide_index=True)
-            else:
-                st.info(f"No site-level plant data for {selected_map_site} in selected filters.")
+                rows = []
+                for site in ['A', 'B', 'C']:
+                    atk_rounds = site_rd[(site_rd['Site'] == site) & (site_rd['Side'] == 'Attack')]
+                    def_rounds = site_rd[(site_rd['Site'] == site) & (site_rd['Side'] == 'Defence')]
+
+                    atk_n = len(atk_rounds)
+                    def_n = len(def_rounds)
+                    atk_wr = round((atk_rounds['Result'].str.lower() == 'win').sum() / atk_n * 100, 1) if atk_n > 0 else None
+                    def_wr = round((def_rounds['Result'].str.lower() == 'win').sum() / def_n * 100, 1) if def_n > 0 else None
+
+                    if atk_n > 0 or def_n > 0:
+                        rows.append({
+                            'Site': f'Site {site}',
+                            'Post Plant (Atk)': atk_wr,
+                            'Retake (Def)': def_wr,
+                            'Atk Plants': atk_n,
+                            'Def Plants': def_n,
+                        })
+
+                if rows:
+                    site_summary = pd.DataFrame(rows)
+                    site_long = site_summary.melt(
+                        id_vars=['Site', 'Atk Plants', 'Def Plants'],
+                        value_vars=['Post Plant (Atk)', 'Retake (Def)'],
+                        var_name='Type', value_name='Win Rate (%)'
+                    ).dropna(subset=['Win Rate (%)'])
+
+                    def make_label(row):
+                        n = row['Atk Plants'] if row['Type'] == 'Post Plant (Atk)' else row['Def Plants']
+                        return f"{row['Win Rate (%)']:.0f}% (n={n})"
+
+                    site_long['Label'] = site_long.apply(make_label, axis=1)
+                    fig_site = px.bar(
+                        site_long, x='Site', y='Win Rate (%)', color='Type', barmode='group',
+                        text='Label',
+                        color_discrete_map={'Post Plant (Atk)': '#FDB913', 'Retake (Def)': '#60a5fa'},
+                        title=f"Post-Plant Win Rate by Site — {selected_map_site}",
+                        category_orders={'Site': ['Site A', 'Site B', 'Site C']}
+                    )
+                    fig_site.update_traces(textposition='outside', marker_line_color='#333', marker_line_width=1)
+                    fig_site.add_hline(y=50, line_dash='dash', line_color='#666',
+                        annotation_text='50%', annotation_font_color='#aaa')
+                    fig_site.update_layout(
+                        plot_bgcolor='#000000', paper_bgcolor='#000000',
+                        font=dict(family='Rajdhani', color='#FDB913'),
+                        title_font=dict(size=18, color='#FDB913'),
+                        xaxis=dict(tickfont=dict(color='#fff'), gridcolor='#333'),
+                        yaxis=dict(range=[0, 115], tickfont=dict(color='#fff'), gridcolor='#333', title='Win Rate (%)'),
+                        legend=dict(font=dict(color='#fff')),
+                        bargap=0.25
+                    )
+                    st.plotly_chart(fig_site, use_container_width=True)
+
+                    display_site = site_summary.copy()
+                    for col in ['Post Plant (Atk)', 'Retake (Def)']:
+                        display_site[col] = display_site[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "—")
+                    st.dataframe(display_site, use_container_width=True, hide_index=True)
+                else:
+                    st.info(f"No site-level plant data for {selected_map_site} in selected filters.")
     else:
         st.info("No data for selected tiers.")
 
