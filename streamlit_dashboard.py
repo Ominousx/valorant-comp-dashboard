@@ -6,11 +6,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import base64
 
-# Hardcoded credentials
+# ── Auth ───────────────────────────────────────────────────────────────────────
 USERNAME = "moon"
 PASSWORD = "blehbleh"
 
-# Login logic
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -18,7 +17,6 @@ if not st.session_state.logged_in:
     st.title("🔒 Scrim Dashboard Login")
     username_input = st.text_input("Username")
     password_input = st.text_input("Password", type="password")
-
     if st.button("Login"):
         if username_input == USERNAME and password_input == PASSWORD:
             st.session_state.logged_in = True
@@ -37,60 +35,24 @@ encoded_bg = get_base64_image("wallp.png")
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
-    
-    * {{
-        font-family: 'Rajdhani', sans-serif !important;
-    }}
-    
+    * {{ font-family: 'Rajdhani', sans-serif !important; }}
     body {{
         background-image: url("data:image/jpg;base64,{encoded_bg}");
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
-        background-repeat: no-repeat;
-        color: #ffffff;
-        font-family: 'Rajdhani', sans-serif !important;
+        background-size: cover; background-position: center;
+        background-attachment: fixed; background-repeat: no-repeat;
+        color: #ffffff; font-family: 'Rajdhani', sans-serif !important;
     }}
-
-    .stApp {{
-        background-color: rgba(0, 0, 0, 0.85);
-        font-family: 'Rajdhani', sans-serif !important;
+    .stApp {{ background-color: rgba(0,0,0,0.85); font-family: 'Rajdhani', sans-serif !important; }}
+    .block-container {{ padding: 2rem; border-radius: 12px; font-family: 'Rajdhani', sans-serif !important; }}
+    h1,h2,h3,h4,h5,h6,.stTabs,.stButton,p,div,span,label,input,select,textarea,button {{
+        font-family: 'Rajdhani', sans-serif !important; color: #FDB913;
     }}
-
-    .block-container {{
-        padding: 2rem;
-        border-radius: 12px;
-        font-family: 'Rajdhani', sans-serif !important;
-    }}
-
-    h1, h2, h3, h4, h5, h6, .stTabs, .stButton, p, div, span, label, input, select, textarea, button {{
-        font-family: 'Rajdhani', sans-serif !important;
-        color: #FDB913;
-    }}
-
-    .stDataFrame, .stTable {{
-        background-color: #1a1a1a;
-        font-family: 'Rajdhani', sans-serif !important;
-    }}
-
-    /* Tier badge styling */
-    .tier-badge {{
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 4px;
-        font-weight: 700;
-        font-size: 13px;
-        margin-right: 4px;
-    }}
-    .tier-1 {{ background: #FDB913; color: #000; }}
-    .tier-2 {{ background: #9ca3af; color: #000; }}
-    .tier-3 {{ background: #92400e; color: #fff; }}
+    .stDataFrame,.stTable {{ background-color: #1a1a1a; font-family: 'Rajdhani', sans-serif !important; }}
     </style>
 """, unsafe_allow_html=True)
 
 st.title("Valorant Scrim Dashboard")
 st.image("wolves_logo.png", width=100)
-
 
 # ── Load CSVs ──────────────────────────────────────────────────────────────────
 try:
@@ -100,17 +62,100 @@ except Exception as e:
     form_df = pd.DataFrame()
     st.warning(f"⚠️ Couldn't load form.csv: {e}")
 
+@st.cache_data
+def load_and_aggregate_matches(path="Advanced_Data_-_Sheet1.csv"):
+    """Read round-level data and aggregate into match-level rows."""
+    raw = pd.read_csv(path)
+    raw.columns = raw.columns.str.strip()
+    for col in ['Result', 'Side', 'Site', 'Plant XvY', 'Pistol']:
+        if col in raw.columns:
+            raw[col] = raw[col].astype(str).str.strip().replace('nan', '')
+
+    records = []
+    for (map_name, team, date), match in raw.groupby(['Map', 'Team', 'Date'], sort=False):
+        match = match.sort_values('Round').reset_index(drop=True)
+        tier = match['Tier'].dropna().iloc[0] if 'Tier' in match.columns and match['Tier'].notna().any() else None
+
+        r1  = match[match['Round'] == 1].iloc[0]  if len(match[match['Round'] == 1])  > 0 else None
+        r13 = match[match['Round'] == 13].iloc[0] if len(match[match['Round'] == 13]) > 0 else None
+        first_pistol  = 1 if (r1  is not None and r1['Result'].lower()  == 'win') else 0
+        second_pistol = 1 if (r13 is not None and r13['Result'].lower() == 'win') else 0
+        start_side    = r1['Side'] if r1 is not None else None
+
+        first_half  = match[match['Round'] <= 12]
+        second_half = match[match['Round'] >= 13]
+        first_rounds_won  = (first_half['Result'].str.lower()  == 'win').sum()
+        second_rounds_won = (second_half['Result'].str.lower() == 'win').sum()
+        first_half_wr  = round(first_rounds_won  / len(first_half),  2) if len(first_half)  > 0 else None
+        second_half_wr = round(second_rounds_won / len(second_half), 2) if len(second_half) > 0 else None
+
+        def conversion(pistol_won, round_num):
+            r = match[match['Round'] == round_num]
+            if len(r) == 0:
+                return None
+            won = r.iloc[0]['Result'].lower() == 'win'
+            if pistol_won:
+                return 'WW' if won else 'WL'
+            else:
+                return 'LW' if won else 'LL'
+
+        if start_side == 'Attack':
+            atk_2nd = conversion(first_pistol,  2)
+            def_2nd = conversion(second_pistol, 14)
+        else:
+            def_2nd = conversion(first_pistol,  2)
+            atk_2nd = conversion(second_pistol, 14)
+
+        planted    = match[(match['Time at Plant'].notna()) & (match['Time at Plant'].astype(str).str.strip() != '')]
+        atk_plants = planted[planted['Side'] == 'Attack']
+        def_plants = planted[planted['Side'] == 'Defence']
+        atk_pp = round((atk_plants['Result'].str.lower() == 'win').sum() / len(atk_plants), 2) if len(atk_plants) > 0 else 0
+        def_pp = round((def_plants['Result'].str.lower() == 'win').sum() / len(def_plants), 2) if len(def_plants) > 0 else 0
+
+        site_pp = {}
+        for site in ['A', 'B', 'C']:
+            sa = atk_plants[atk_plants['Site'] == site]
+            sd = def_plants[def_plants['Site'] == site]
+            site_pp[f'Atk_PP_{site}'] = round((sa['Result'].str.lower() == 'win').sum() / len(sa), 2) if len(sa) > 0 else None
+            site_pp[f'Def_PP_{site}'] = round((sd['Result'].str.lower() == 'win').sum() / len(sd), 2) if len(sd) > 0 else None
+
+        total_won  = (match['Result'].str.lower() == 'win').sum()
+        total_lost = (match['Result'].str.lower() == 'loss').sum()
+        outcome = 'Win' if total_won > total_lost else 'Loss' if total_lost > total_won else 'Draw'
+
+        records.append({
+            'Date': date, 'Map': map_name, 'Team': team, 'Start': start_side,
+            'First Pistol': first_pistol, 'First Rounds': first_rounds_won, 'First Half WR': first_half_wr,
+            'Second Pistol': second_pistol, 'Second Rounds': second_rounds_won, 'Second Half WR': second_half_wr,
+            'Atk_PP_Success': atk_pp, 'Def_PP_Success': def_pp,
+            **site_pp,
+            'Atk 2nd': atk_2nd, 'Def 2nd': def_2nd,
+            'Outcome': outcome, 'Tier': tier,
+        })
+
+    out = pd.DataFrame(records)
+    col_order = [
+        'Date', 'Map', 'Team', 'Start',
+        'First Pistol', 'First Rounds', 'First Half WR',
+        'Second Pistol', 'Second Rounds', 'Second Half WR',
+        'Atk_PP_Success', 'Def_PP_Success',
+        'Atk_PP_A', 'Atk_PP_B', 'Atk_PP_C',
+        'Def_PP_A', 'Def_PP_B', 'Def_PP_C',
+        'Atk 2nd', 'Def 2nd', 'Outcome', 'Tier'
+    ]
+    out = out[[c for c in col_order if c in out.columns]]
+    return out
+
 try:
-    score_df = pd.read_csv("cleaned_score.csv")
+    score_df = load_and_aggregate_matches("Advanced_Data_-_Sheet1.csv")
     score_df['Date'] = pd.to_datetime(score_df['Date'], errors='coerce')
-    # Ensure Tier is numeric; default to 1 if missing
     if 'Tier' in score_df.columns:
         score_df['Tier'] = pd.to_numeric(score_df['Tier'], errors='coerce').fillna(1).astype(int)
     else:
         score_df['Tier'] = 1
 except Exception as e:
     score_df = pd.DataFrame()
-    st.warning(f"⚠️ Couldn't load cleaned_score.csv: {e}")
+    st.warning(f"⚠️ Couldn't load/aggregate Advanced_Data_-_Sheet1.csv: {e}")
 
 try:
     foracs_df = pd.read_csv("foracs.csv")
@@ -118,32 +163,22 @@ except Exception as e:
     foracs_df = pd.DataFrame()
     st.warning(f"⚠️ Couldn't load foracs.csv: {e}")
 
-# ── Global Tier Filter (sidebar) ───────────────────────────────────────────────
+# ── Sidebar Tier Filter ────────────────────────────────────────────────────────
 TIER_LABELS = {1: "Tier 1 — Top", 2: "Tier 2 — Mid", 3: "Tier 3 — Lower"}
 TIER_COLORS = {1: "#FDB913", 2: "#9ca3af", 3: "#b45309"}
 
 with st.sidebar:
     st.markdown("## 🏆 Scrim Tier Filter")
     st.markdown("Filter all stats by opponent tier:")
-
-    if not score_df.empty:
-        available_tiers = sorted(score_df['Tier'].unique())
-    else:
-        available_tiers = [1, 2, 3]
-
+    available_tiers = sorted(score_df['Tier'].unique()) if not score_df.empty else [1, 2, 3]
     selected_tiers = st.multiselect(
-        "Select Tier(s)",
-        options=available_tiers,
-        default=available_tiers,
+        "Select Tier(s)", options=available_tiers, default=available_tiers,
         format_func=lambda t: TIER_LABELS.get(t, f"Tier {t}"),
         key="global_tier_filter"
     )
-
     if not selected_tiers:
         st.warning("⚠️ No tier selected — showing all data.")
         selected_tiers = available_tiers
-
-    # Show a summary of how many games per tier
     if not score_df.empty:
         st.markdown("---")
         st.markdown("**Games per tier:**")
@@ -157,11 +192,7 @@ with st.sidebar:
                 unsafe_allow_html=True
             )
 
-# Apply global tier filter to score_df for all tabs
-if not score_df.empty:
-    score_df_filtered = score_df[score_df['Tier'].isin(selected_tiers)].copy()
-else:
-    score_df_filtered = score_df.copy()
+score_df_filtered = score_df[score_df['Tier'].isin(selected_tiers)].copy() if not score_df.empty else score_df.copy()
 
 # ── Tab navigation ─────────────────────────────────────────────────────────────
 if 'active_tab' not in st.session_state:
@@ -181,45 +212,15 @@ icons = [
     load_svg_icon("assets/list-ol-solid-full.svg"),
     load_svg_icon("assets/compress-solid-full.svg")
 ]
-
 tab_names = ["Overview", "Compositions", "Insights", "Pistol", "Stats", "Compare"]
 
 st.markdown("""
     <style>
-    .icon-tab-container {
-        position: relative;
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        margin-bottom: 0.375rem !important;
-    }
-    .icon-display {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 8px;
-        cursor: pointer;
-        padding: 8px;
-        border-radius: 8px;
-        transition: all 0.2s ease;
-    }
-    .icon-display:hover { background: rgba(253, 185, 19, 0.1); transform: translateY(-2px); }
-    .icon-display.active { background: #FDB913 !important; }
-    .icon-display.active svg { fill: white !important; }
-    button[data-testid*="icon_tab"]:hover {
-        background: rgba(253, 185, 19, 0.1) !important;
-        border-color: #FDB913 !important;
-        transform: translateY(-2px);
-        transition: all 0.2s ease;
-    }
-    button[data-testid*="icon_tab"].active {
-        background: #FDB913 !important;
-        border-color: #FDB913 !important;
-        color: white !important;
-    }
-    hr { margin-top: 0.375rem !important; margin-bottom: 0.375rem !important; border: none !important; height: 1px !important; background-color: rgba(255,255,255,0.1) !important; }
-    div[data-testid="stHorizontalBlock"] { margin-bottom: 0.375rem !important; }
+    .icon-tab-container { position:relative; width:100%; display:flex; flex-direction:column; align-items:center; margin-bottom:0.375rem !important; }
+    .icon-display { display:flex; align-items:center; justify-content:center; margin-bottom:8px; cursor:pointer; padding:8px; border-radius:8px; transition:all 0.2s ease; }
+    .icon-display:hover { background:rgba(253,185,19,0.1); transform:translateY(-2px); }
+    .icon-display.active { background:#FDB913 !important; }
+    hr { margin-top:0.375rem !important; margin-bottom:0.375rem !important; border:none !important; height:1px !important; background-color:rgba(255,255,255,0.1) !important; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -229,28 +230,14 @@ for idx, (col, icon, name) in enumerate(zip(cols, icons, tab_names)):
         is_active = st.session_state.active_tab == idx
         active_class = "active" if is_active else ""
         st.markdown(f'<div class="icon-tab-container">', unsafe_allow_html=True)
-        st.markdown(f"""
-            <div class="icon-display {active_class}" onclick="document.querySelector('button[data-testid*=\\'icon_tab_{idx}\\']').click()">
-                {icon}
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="icon-display {active_class}">{icon}</div>', unsafe_allow_html=True)
         if st.button(name, key=f"icon_tab_{idx}", use_container_width=True, help=name):
             st.session_state.active_tab = idx
             st.rerun()
-        if is_active:
-            st.markdown(f"""
-                <script>
-                (function() {{
-                    const button = document.querySelector('button[data-testid*="icon_tab_{idx}"]');
-                    if (button) button.classList.add('active');
-                }})();
-                </script>
-            """, unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown("<hr style='margin: 0.5rem 0;'>", unsafe_allow_html=True)
+st.markdown("<hr style='margin:0.5rem 0;'>", unsafe_allow_html=True)
 
-# Helper: show which tiers are active
 def tier_badge_html(tiers):
     badges = ""
     for t in sorted(tiers):
@@ -266,13 +253,7 @@ if st.session_state.active_tab == 0:
     if not score_df_filtered.empty and 'Date' in score_df_filtered.columns:
         min_date = score_df_filtered['Date'].min().date()
         max_date = score_df_filtered['Date'].max().date()
-        date_range = st.date_input(
-            "Select Date Range",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date,
-            key="overview_date_range"
-        )
+        date_range = st.date_input("Select Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date, key="overview_date_range")
         if isinstance(date_range, tuple) and len(date_range) == 2:
             start_date_overview, end_date_overview = date_range
         else:
@@ -299,7 +280,6 @@ if st.session_state.active_tab == 0:
         winrate_df = summary[['Map', 'Win Rate']].dropna().copy()
         winrate_df['Win Rate %'] = winrate_df['Win Rate'] * 100
         winrate_df = winrate_df.sort_values(by='Win Rate %', ascending=False)
-
         fig_map_wr = px.bar(
             winrate_df, x='Win Rate %', y='Map', orientation='h',
             text=winrate_df['Win Rate %'].apply(lambda x: f"{x:.1f}%"),
@@ -316,7 +296,6 @@ if st.session_state.active_tab == 0:
         )
         st.plotly_chart(fig_map_wr, use_container_width=True)
 
-        # ── Win rate by Tier (grouped bar) ──
         st.markdown("### 📊 Win Rate by Map × Tier")
         tier_map_summary = score_df_filtered[
             (score_df_filtered['Date'].dt.date >= start_date_overview) &
@@ -327,10 +306,8 @@ if st.session_state.active_tab == 0:
         ).reset_index()
         tier_map_summary['Win Rate %'] = tier_map_summary['Wins'] / tier_map_summary['Games'] * 100
         tier_map_summary['Tier Label'] = tier_map_summary['Tier'].map(lambda t: f"Tier {t}")
-
         fig_tier = px.bar(
-            tier_map_summary, x='Map', y='Win Rate %',
-            color='Tier Label',
+            tier_map_summary, x='Map', y='Win Rate %', color='Tier Label',
             color_discrete_map={'Tier 1': '#FDB913', 'Tier 2': '#9ca3af', 'Tier 3': '#b45309'},
             barmode='group',
             text=tier_map_summary['Win Rate %'].apply(lambda x: f"{x:.0f}%"),
@@ -359,22 +336,17 @@ if st.session_state.active_tab == 1:
             block = form_df.iloc[i:i+5]
             if len(block) == 5 and block['Column 1'].nunique() == 1 and block['Result'].nunique() == 1:
                 valid_maps.append(block['Column 1'].iloc[0])
-
         valid_maps = sorted(set(valid_maps))
         selected_map = st.selectbox("Select a map:", valid_maps)
-
         teams = []
         filtered_dates = set(score_df_filtered['Date'])
         for i in range(0, len(form_df) - 4, 5):
             block = form_df.iloc[i:i+5]
             map_match = block['Column 1'].iloc[0]
             result_match = block['Result'].iloc[0]
-
             if (
-                len(block) == 5 and
-                block['Column 1'].nunique() == 1 and
-                block['Result'].nunique() == 1 and
-                block['Column 1'].iloc[0] == selected_map
+                len(block) == 5 and block['Column 1'].nunique() == 1 and
+                block['Result'].nunique() == 1 and block['Column 1'].iloc[0] == selected_map
             ):
                 match_filter = (
                     (score_df_filtered['Map'] == map_match) &
@@ -384,52 +356,38 @@ if st.session_state.active_tab == 1:
                 if not score_df_filtered[match_filter].empty:
                     agents = tuple(sorted(block['Agent'].tolist()))
                     teams.append({'Composition': agents, 'Result': result_match})
-
-        df = pd.DataFrame(teams)
-        if not df.empty:
-            df['Win'] = df['Result'].apply(lambda x: 1 if x.lower() == 'win' else 0)
-            df['Draw'] = df['Result'].apply(lambda x: 1 if x.lower() == 'draw' else 0)
-            df['Loss'] = df['Result'].apply(lambda x: 1 if x.lower() == 'loss' else 0)
-            df['Game'] = 1
-
-            grouped = df.groupby('Composition').agg(
-                games=('Game', 'sum'),
-                wins=('Win', 'sum'),
-                draws=('Draw', 'sum'),
-                losses=('Loss', 'sum')
+        df_comp = pd.DataFrame(teams)
+        if not df_comp.empty:
+            df_comp['Win']  = df_comp['Result'].apply(lambda x: 1 if x.lower() == 'win'  else 0)
+            df_comp['Draw'] = df_comp['Result'].apply(lambda x: 1 if x.lower() == 'draw' else 0)
+            df_comp['Loss'] = df_comp['Result'].apply(lambda x: 1 if x.lower() == 'loss' else 0)
+            df_comp['Game'] = 1
+            grouped = df_comp.groupby('Composition').agg(
+                games=('Game','sum'), wins=('Win','sum'), draws=('Draw','sum'), losses=('Loss','sum')
             ).reset_index()
-
             grouped['Win Rate %'] = grouped['wins'] / grouped['games'] * 100
             grouped['Comp String'] = grouped['Composition'].apply(lambda x: '-'.join(x))
             grouped = grouped.sort_values(by='Win Rate %', ascending=False).head(15)
-            grouped['First Agent'] = grouped['Composition'].apply(lambda x: x[0])
 
-        if not grouped.empty:
             st.markdown("""
             <style>
-            .composition-bar {
-                display: flex; align-items: center; background: #2a2a2a;
-                border: 1px solid #333; border-radius: 4px; padding: 8px; margin: 3px 0;
-                min-height: 45px; position: relative; overflow: hidden;
-            }
-            .bar-background { position: absolute; left: 180px; top: 0; height: 100%; background: #FDB913; border-radius: 0 4px 4px 0; z-index: 1; }
-            .agents-container { display: flex; gap: 4px; align-items: center; min-width: 170px; z-index: 2; position: relative; }
-            .agent-icon-img { width: 28px; height: 28px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.2); }
-            .win-rate-info { margin-left: auto; z-index: 2; position: relative; color: white; font-weight: bold; text-align: right; padding-right: 12px; }
-            .win-percentage { font-size: 16px; text-shadow: 1px 1px 2px rgba(0,0,0,0.8); }
-            .game-count { font-size: 11px; color: #ccc; }
+            .composition-bar { display:flex; align-items:center; background:#2a2a2a; border:1px solid #333; border-radius:4px; padding:8px; margin:3px 0; min-height:45px; position:relative; overflow:hidden; }
+            .bar-background { position:absolute; left:180px; top:0; height:100%; background:#FDB913; border-radius:0 4px 4px 0; z-index:1; }
+            .agents-container { display:flex; gap:4px; align-items:center; min-width:170px; z-index:2; position:relative; }
+            .agent-icon-img { width:28px; height:28px; border-radius:3px; border:1px solid rgba(255,255,255,0.2); }
+            .win-rate-info { margin-left:auto; z-index:2; position:relative; color:white; font-weight:bold; text-align:right; padding-right:12px; }
+            .win-percentage { font-size:16px; text-shadow:1px 1px 2px rgba(0,0,0,0.8); }
+            .game-count { font-size:11px; color:#ccc; }
             </style>
             """, unsafe_allow_html=True)
 
             st.markdown(f"### Top Compositions on {selected_map}")
             max_win_rate = grouped['Win Rate %'].max()
-
             for idx, row in grouped.iterrows():
                 composition = row['Composition']
                 win_rate = row['Win Rate %']
                 games = row['games']
                 bar_width_percent = (win_rate / max_win_rate * 80) if max_win_rate > 0 else 0
-
                 icons_html = ""
                 for agent in composition:
                     icon_name = agent.lower().replace('/', '_').replace(' ', '_')
@@ -443,7 +401,6 @@ if st.session_state.active_tab == 1:
                             icons_html += f'<div class="agent-icon-img" style="background:#666;color:white;display:flex;align-items:center;justify-content:center;font-size:10px;">{agent[:2]}</div>'
                     else:
                         icons_html += f'<div class="agent-icon-img" style="background:#666;color:white;display:flex;align-items:center;justify-content:center;font-size:10px;">{agent[:2]}</div>'
-
                 st.markdown(f"""
                 <div class="composition-bar">
                     <div class="bar-background" style="width:{bar_width_percent}%;"></div>
@@ -457,7 +414,6 @@ if st.session_state.active_tab == 1:
         else:
             st.info(f"No composition data for {selected_map} in selected tiers.")
 
-    # Agent win rate heatmap (uses foracs_df — no tier filter needed here)
     st.subheader("📊 Win Rate by Agent by Player")
     if not foracs_df.empty and 'Result' in foracs_df.columns:
         foracs_agg = foracs_df.groupby(['Player', 'Agent']).agg(
@@ -465,14 +421,14 @@ if st.session_state.active_tab == 1:
             wins=('Result', lambda x: (x.str.strip().str.lower() == 'win').sum())
         ).reset_index()
         foracs_agg['Win Rate %'] = (foracs_agg['wins'] / foracs_agg['games'] * 100).round(1)
-        pivot = foracs_agg.pivot_table(index='Player', columns='Agent', values='Win Rate %', aggfunc='mean')
-        pivot_wins = foracs_agg.pivot_table(index='Player', columns='Agent', values='wins', aggfunc='sum')
-        pivot_games = foracs_agg.pivot_table(index='Player', columns='Agent', values='games', aggfunc='sum')
+        pivot       = foracs_agg.pivot_table(index='Player', columns='Agent', values='Win Rate %', aggfunc='mean')
+        pivot_wins  = foracs_agg.pivot_table(index='Player', columns='Agent', values='wins',      aggfunc='sum')
+        pivot_games = foracs_agg.pivot_table(index='Player', columns='Agent', values='games',     aggfunc='sum')
         if not pivot.empty:
             all_players = sorted(foracs_df['Player'].dropna().unique())
-            all_agents = sorted(foracs_df['Agent'].dropna().unique())
-            pivot = pivot.reindex(index=all_players, columns=all_agents)
-            pivot_wins = pivot_wins.reindex(index=all_players, columns=all_agents)
+            all_agents  = sorted(foracs_df['Agent'].dropna().unique())
+            pivot       = pivot.reindex(index=all_players, columns=all_agents)
+            pivot_wins  = pivot_wins.reindex(index=all_players, columns=all_agents)
             pivot_games = pivot_games.reindex(index=all_players, columns=all_agents)
             NOT_PLAYED = -1
             z = pivot.values.copy().astype(float)
@@ -486,9 +442,8 @@ if st.session_state.active_tab == 1:
                     if g == 0:
                         row.append("Not played")
                     else:
-                        w = int(pivot_wins.loc[player, agent]) if pd.notna(pivot_wins.loc[player, agent]) else 0
-                        wr = pivot.loc[player, agent]
-                        wr = float(wr) if pd.notna(wr) else 0
+                        w  = int(pivot_wins.loc[player, agent]) if pd.notna(pivot_wins.loc[player, agent]) else 0
+                        wr = float(pivot.loc[player, agent]) if pd.notna(pivot.loc[player, agent]) else 0
                         row.append(f"Win Rate: {wr:.0f}% ({w}/{g})")
                 customdata.append(row)
             text = [[f"{v:.0f}%" if v >= 0 else "" for v in row] for row in z]
@@ -521,13 +476,13 @@ if st.session_state.active_tab == 2:
     st.markdown(tier_badge_html(selected_tiers), unsafe_allow_html=True)
     st.subheader("📈 Round Insights")
     if not score_df_filtered.empty:
-        maps = sorted(score_df_filtered['Map'].dropna().unique())
+        maps  = sorted(score_df_filtered['Map'].dropna().unique())
         dates = sorted(score_df_filtered['Date'].dropna().unique())
 
         col1, col2 = st.columns(2)
         selected_map = col1.selectbox("Filter by Map", ["All"] + maps)
-        start_date = col1.selectbox("Start Date", dates, key="insight_start")
-        end_date = col2.selectbox("End Date", dates, index=len(dates)-1, key="insight_end")
+        start_date   = col1.selectbox("Start Date", dates, key="insight_start")
+        end_date     = col2.selectbox("End Date", dates, index=len(dates)-1, key="insight_end")
 
         filtered_df = score_df_filtered.copy()
         if selected_map != "All":
@@ -544,33 +499,32 @@ if st.session_state.active_tab == 2:
                 return row['First Half WR'] if row['Start'] == 'Defence' else row['Second Half WR']
             return None
 
-        filtered_df['Atk WR Derived'] = filtered_df.apply(lambda row: extract_wr(row, 'Attack'), axis=1)
+        filtered_df['Atk WR Derived'] = filtered_df.apply(lambda row: extract_wr(row, 'Attack'),  axis=1)
         filtered_df['Def WR Derived'] = filtered_df.apply(lambda row: extract_wr(row, 'Defence'), axis=1)
 
         st.dataframe(filtered_df, use_container_width=True)
 
         st.markdown("### 🔍 Summary Stats")
-
         agg_dict = {
-            'Games': ('Outcome', 'count'),
-            'Wins': ('Outcome', lambda x: (x.str.lower() == 'win').sum()),
-            'Draws': ('Outcome', lambda x: (x.str.lower() == 'draw').sum()),
-            'Losses': ('Outcome', lambda x: (x.str.lower() == 'loss').sum()),
-            'Avg_Atk_WR': ('Atk WR Derived', lambda x: pd.to_numeric(x.astype(str).str.replace('%','',regex=False), errors='coerce').mean()),
-            'Avg_Def_WR': ('Def WR Derived', lambda x: pd.to_numeric(x.astype(str).str.replace('%','',regex=False), errors='coerce').mean()),
+            'Games':       ('Outcome', 'count'),
+            'Wins':        ('Outcome', lambda x: (x.str.lower() == 'win').sum()),
+            'Draws':       ('Outcome', lambda x: (x.str.lower() == 'draw').sum()),
+            'Losses':      ('Outcome', lambda x: (x.str.lower() == 'loss').sum()),
+            'Avg_Atk_WR':  ('Atk WR Derived', 'mean'),
+            'Avg_Def_WR':  ('Def WR Derived', 'mean'),
         }
         if 'Atk_PP_Success' in filtered_df.columns:
-            agg_dict['Atk_PP_Success'] = ('Atk_PP_Success', lambda x: pd.to_numeric(x.fillna('0').astype(str).str.replace('%',''), errors='coerce').mean())
+            agg_dict['Atk_PP_Success'] = ('Atk_PP_Success', 'mean')
         if 'Def_PP_Success' in filtered_df.columns:
-            agg_dict['Def_PP_Success'] = ('Def_PP_Success', lambda x: pd.to_numeric(x.fillna('0').astype(str).str.replace('%',''), errors='coerce').mean())
+            agg_dict['Def_PP_Success'] = ('Def_PP_Success', 'mean')
 
         summary = filtered_df.groupby('Map').agg(**agg_dict).reset_index()
-        summary['Raw_Atk_WR'] = summary['Avg_Atk_WR']
-        summary['Raw_Def_WR'] = summary['Avg_Def_WR']
+        summary['Raw_Atk_WR']   = summary['Avg_Atk_WR']
+        summary['Raw_Def_WR']   = summary['Avg_Def_WR']
         summary['Raw_Round_WR'] = (summary['Raw_Atk_WR'] + summary['Raw_Def_WR']) / 2
-        summary['Round WR'] = summary['Raw_Round_WR'].apply(lambda x: f"{x*100:.1f}%" if pd.notnull(x) else "-")
-        summary['Avg_Atk_WR'] = summary['Avg_Atk_WR'].apply(lambda x: f"{x*100:.1f}%" if pd.notnull(x) else "-")
-        summary['Avg_Def_WR'] = summary['Avg_Def_WR'].apply(lambda x: f"{x*100:.1f}%" if pd.notnull(x) else "-")
+        summary['Round WR']     = summary['Raw_Round_WR'].apply(lambda x: f"{x*100:.1f}%" if pd.notnull(x) else "-")
+        summary['Avg_Atk_WR']   = summary['Avg_Atk_WR'].apply(lambda x: f"{x*100:.1f}%" if pd.notnull(x) else "-")
+        summary['Avg_Def_WR']   = summary['Avg_Def_WR'].apply(lambda x: f"{x*100:.1f}%" if pd.notnull(x) else "-")
 
         display_cols = ['Map', 'Games', 'Wins', 'Draws', 'Losses', 'Avg_Atk_WR', 'Avg_Def_WR', 'Round WR']
 
@@ -590,20 +544,17 @@ if st.session_state.active_tab == 2:
             .map(highlight_win_rates, subset=['Avg_Atk_WR', 'Avg_Def_WR', 'Round WR'])\
             .set_properties(**{'text-align': 'center'})\
             .set_table_styles([{'selector': 'th', 'props': [('background-color','#1a1a1a'),('color','#FDB913'),('text-align','center')]}])
-
         st.dataframe(styled_df, use_container_width=True)
 
-        # ── Per-tier breakdown inside Insights ──
+        # Per-tier breakdown
         st.markdown("### 🏆 Round Win Rate by Tier")
         tier_insight = score_df_filtered.copy()
         if selected_map != "All":
             tier_insight = tier_insight[tier_insight['Map'] == selected_map]
         if start_date and end_date:
             tier_insight = tier_insight[(tier_insight['Date'] >= start_date) & (tier_insight['Date'] <= end_date)]
-
-        tier_insight['Atk WR Derived'] = tier_insight.apply(lambda row: extract_wr(row, 'Attack'), axis=1)
+        tier_insight['Atk WR Derived'] = tier_insight.apply(lambda row: extract_wr(row, 'Attack'),  axis=1)
         tier_insight['Def WR Derived'] = tier_insight.apply(lambda row: extract_wr(row, 'Defence'), axis=1)
-
         tier_summary = tier_insight.groupby('Tier').agg(
             Games=('Outcome', 'count'),
             Wins=('Outcome', lambda x: (x.str.lower() == 'win').sum()),
@@ -611,13 +562,11 @@ if st.session_state.active_tab == 2:
             Avg_Def_WR=('Def WR Derived', 'mean'),
         ).reset_index()
         tier_summary['Win Rate %'] = tier_summary['Wins'] / tier_summary['Games'] * 100
-        tier_summary['Atk WR %'] = tier_summary['Avg_Atk_WR'] * 100
-        tier_summary['Def WR %'] = tier_summary['Avg_Def_WR'] * 100
+        tier_summary['Atk WR %']   = tier_summary['Avg_Atk_WR'] * 100
+        tier_summary['Def WR %']   = tier_summary['Avg_Def_WR'] * 100
         tier_summary['Tier Label'] = tier_summary['Tier'].map(lambda t: f"Tier {t}")
-
         tier_long = tier_summary.melt(
-            id_vars='Tier Label',
-            value_vars=['Win Rate %', 'Atk WR %', 'Def WR %'],
+            id_vars='Tier Label', value_vars=['Win Rate %', 'Atk WR %', 'Def WR %'],
             var_name='Metric', value_name='Value'
         )
         fig_tier_ins = px.bar(
@@ -639,11 +588,9 @@ if st.session_state.active_tab == 2:
         # Atk vs Def chart
         plot_df = summary[['Map', 'Raw_Atk_WR', 'Raw_Def_WR']].copy()
         plot_df.rename(columns={'Raw_Atk_WR': 'Attack', 'Raw_Def_WR': 'Defense'}, inplace=True)
-        plot_df['Attack'] *= 100
-        plot_df['Defense'] *= 100
+        plot_df['Attack']   *= 100
+        plot_df['Defense']  *= 100
         plot_df = plot_df.melt(id_vars='Map', var_name='Side', value_name='Win Rate (%)')
-        plot_df['Map'] = pd.Categorical(plot_df['Map'], categories=plot_df.groupby('Map')['Win Rate (%)'].mean().sort_values(ascending=False).index, ordered=True)
-
         fig = px.bar(
             plot_df, x='Map', y='Win Rate (%)', color='Side',
             color_discrete_map={'Attack': '#FDB913', 'Defense': '#ffffff'},
@@ -661,30 +608,25 @@ if st.session_state.active_tab == 2:
         )
         st.plotly_chart(fig, use_container_width=True)
 
-        # Post-plant chart
+        # Post-plant stacked chart
         if 'Atk_PP_Success' in score_df_filtered.columns and 'Def_PP_Success' in score_df_filtered.columns:
             st.markdown("### 📊 Post-Plant Success Rate by Map")
-            pp_source = filtered_df.copy()
-            pp_df = pp_source.groupby('Map').agg({
-                'Atk_PP_Success': lambda x: pd.to_numeric(x.astype(str).str.replace('%','',regex=False), errors='coerce').mean(),
-                'Def_PP_Success': lambda x: pd.to_numeric(x.astype(str).str.replace('%','',regex=False), errors='coerce').mean()
+            pp_df = filtered_df.groupby('Map').agg({
+                'Atk_PP_Success': 'mean',
+                'Def_PP_Success': 'mean'
             }).reset_index()
-
             label_map = {"Atk_PP_Success": "Post Plant", "Def_PP_Success": "Retakes"}
             sort_label = st.selectbox("Sort by", list(label_map.values()), index=0)
-            sort_col = [k for k, v in label_map.items() if v == sort_label][0]
+            sort_col   = [k for k, v in label_map.items() if v == sort_label][0]
             sort_order = st.radio("Order", ["Descending", "Ascending"], horizontal=True)
-            ascending = sort_order == "Ascending"
-
+            ascending  = sort_order == "Ascending"
             if pp_df['Atk_PP_Success'].max() <= 1.0:
                 pp_df['Atk_PP_Success'] *= 100
                 pp_df['Def_PP_Success'] *= 100
-
             pp_df = pp_df.sort_values(by=sort_col, ascending=ascending)
             pp_df['Map'] = pd.Categorical(pp_df['Map'], categories=pp_df['Map'], ordered=True)
             pp_df.rename(columns=label_map, inplace=True)
             pp_df_long = pp_df.melt(id_vars='Map', var_name='Side', value_name='Post-Plant Success (%)')
-
             fig_pp = px.bar(
                 pp_df_long, x='Map', y='Post-Plant Success (%)', color='Side', barmode='stack',
                 text=pp_df_long['Post-Plant Success (%)'].apply(lambda x: f"{x:.1f}%"),
@@ -701,6 +643,74 @@ if st.session_state.active_tab == 2:
                 legend=dict(font=dict(color='#fff'))
             )
             st.plotly_chart(fig_pp, use_container_width=True)
+
+        # ── Site-wise Post-Plant Breakdown ────────────────────────────────────
+        site_cols = ['Atk_PP_A', 'Atk_PP_B', 'Atk_PP_C', 'Def_PP_A', 'Def_PP_B', 'Def_PP_C']
+        has_site_data = any(c in filtered_df.columns for c in site_cols)
+
+        if has_site_data:
+            st.markdown("### 📍 Post-Plant Success by Site")
+            maps_with_site = sorted(filtered_df['Map'].dropna().unique())
+            selected_map_site = st.selectbox(
+                "Select map for site breakdown:", maps_with_site, key="site_breakdown_map"
+            )
+            site_df = filtered_df[filtered_df['Map'] == selected_map_site].copy()
+
+            rows = []
+            for site in ['A', 'B', 'C']:
+                atk_col = f'Atk_PP_{site}'
+                def_col = f'Def_PP_{site}'
+                atk_vals = pd.to_numeric(site_df[atk_col], errors='coerce').dropna() if atk_col in site_df.columns else pd.Series(dtype=float)
+                def_vals = pd.to_numeric(site_df[def_col], errors='coerce').dropna() if def_col in site_df.columns else pd.Series(dtype=float)
+                if len(atk_vals) > 0 or len(def_vals) > 0:
+                    rows.append({
+                        'Site': f'Site {site}',
+                        'Post Plant (Atk)': round(atk_vals.mean() * 100, 1) if len(atk_vals) > 0 else None,
+                        'Retake (Def)':     round(def_vals.mean() * 100, 1) if len(def_vals) > 0 else None,
+                        'Atk Rounds': len(atk_vals),
+                        'Def Rounds': len(def_vals),
+                    })
+
+            if rows:
+                site_summary = pd.DataFrame(rows)
+                site_long = site_summary.melt(
+                    id_vars=['Site', 'Atk Rounds', 'Def Rounds'],
+                    value_vars=['Post Plant (Atk)', 'Retake (Def)'],
+                    var_name='Type', value_name='Win Rate (%)'
+                ).dropna(subset=['Win Rate (%)'])
+
+                def make_label(row):
+                    n = row['Atk Rounds'] if row['Type'] == 'Post Plant (Atk)' else row['Def Rounds']
+                    return f"{row['Win Rate (%)']:.0f}%\n(n={n})"
+
+                site_long['Label'] = site_long.apply(make_label, axis=1)
+                fig_site = px.bar(
+                    site_long, x='Site', y='Win Rate (%)', color='Type', barmode='group',
+                    text='Label',
+                    color_discrete_map={'Post Plant (Atk)': '#FDB913', 'Retake (Def)': '#60a5fa'},
+                    title=f"Post-Plant Win Rate by Site — {selected_map_site}"
+                )
+                fig_site.update_traces(textposition='outside', marker_line_color='#333', marker_line_width=1)
+                fig_site.add_hline(y=50, line_dash='dash', line_color='#666',
+                    annotation_text='50%', annotation_font_color='#aaa')
+                fig_site.update_layout(
+                    plot_bgcolor='#000000', paper_bgcolor='#000000',
+                    font=dict(family='Rajdhani', color='#FDB913'),
+                    title_font=dict(size=18, color='#FDB913'),
+                    xaxis=dict(tickfont=dict(color='#fff'), gridcolor='#333'),
+                    yaxis=dict(range=[0, 115], tickfont=dict(color='#fff'), gridcolor='#333', title='Win Rate (%)'),
+                    legend=dict(font=dict(color='#fff')),
+                    bargap=0.25
+                )
+                st.plotly_chart(fig_site, use_container_width=True)
+
+                display_site = site_summary.copy()
+                for col in ['Post Plant (Atk)', 'Retake (Def)']:
+                    display_site[col] = display_site[col].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "—")
+                display_site = display_site.rename(columns={'Atk Rounds': 'Atk Plant Rounds', 'Def Rounds': 'Def Plant Rounds'})
+                st.dataframe(display_site, use_container_width=True, hide_index=True)
+            else:
+                st.info(f"No site-level plant data for {selected_map_site} in selected filters.")
     else:
         st.info("No data for selected tiers.")
 
@@ -708,23 +718,16 @@ if st.session_state.active_tab == 2:
 if st.session_state.active_tab == 3:
     st.markdown(tier_badge_html(selected_tiers), unsafe_allow_html=True)
     st.subheader("🔫 Pistol Round Win Rate by Map")
-
     if not score_df_filtered.empty:
         min_date = score_df_filtered['Date'].min()
         max_date = score_df_filtered['Date'].max()
-
         start_date, end_date = st.date_input(
-            "Select Date Range",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date
+            "Select Date Range", value=(min_date, max_date), min_value=min_date, max_value=max_date
         )
-
         filtered_df = score_df_filtered[
             (score_df_filtered['Date'] >= pd.to_datetime(start_date)) &
             (score_df_filtered['Date'] <= pd.to_datetime(end_date))
         ]
-
         filtered_df['Total Pistols Won'] = filtered_df['First Pistol'] + filtered_df['Second Pistol']
         grouped = filtered_df.groupby('Map').agg(
             Total_Pistols_Won=('Total Pistols Won', 'sum'),
@@ -733,7 +736,6 @@ if st.session_state.active_tab == 3:
         grouped['Total_Pistols_Played'] *= 2
         grouped['Pistol Win Rate (%)'] = (grouped['Total_Pistols_Won'] / grouped['Total_Pistols_Played']) * 100
         grouped = grouped.sort_values(by='Pistol Win Rate (%)', ascending=False)
-
         fig_pistol = px.bar(
             grouped, x='Map', y='Pistol Win Rate (%)',
             text=grouped['Pistol Win Rate (%)'].apply(lambda x: f"{x:.1f}%"),
@@ -750,16 +752,14 @@ if st.session_state.active_tab == 3:
         )
         st.plotly_chart(fig_pistol, use_container_width=True)
 
-        # ── Pistol WR by Tier ──
         st.markdown("### 🏆 Pistol Win Rate by Tier")
         pistol_tier = filtered_df.groupby('Tier').agg(
             Total_Won=('Total Pistols Won', 'sum'),
             Total_Played=('Map', 'count')
         ).reset_index()
         pistol_tier['Total_Played'] *= 2
-        pistol_tier['Pistol WR %'] = pistol_tier['Total_Won'] / pistol_tier['Total_Played'] * 100
-        pistol_tier['Tier Label'] = pistol_tier['Tier'].map(lambda t: f"Tier {t}")
-
+        pistol_tier['Pistol WR %']  = pistol_tier['Total_Won'] / pistol_tier['Total_Played'] * 100
+        pistol_tier['Tier Label']   = pistol_tier['Tier'].map(lambda t: f"Tier {t}")
         fig_pt = px.bar(
             pistol_tier, x='Tier Label', y='Pistol WR %',
             text=pistol_tier['Pistol WR %'].apply(lambda x: f"{x:.1f}%"),
@@ -786,7 +786,6 @@ if st.session_state.active_tab == 3:
             map_list = conversion_data['Map'].dropna().unique()
             selected_map_pistol = st.selectbox("Select a map to view 2nd round breakdown:", sorted(map_list))
             map_conversions = conversion_data[conversion_data['Map'] == selected_map_pistol]
-
             col1, col2 = st.columns(2)
             with col1:
                 st.markdown("#### 🔁 After Winning Pistol (WW/WL)")
@@ -805,7 +804,6 @@ if st.session_state.active_tab == 3:
                         font=dict(family='Rajdhani', size=14, color='#FDB913'),
                         title_font=dict(size=18, color='#FDB913'), legend=dict(font=dict(color='#ffffff')))
                     st.plotly_chart(fig_pie_win, use_container_width=True)
-
             with col2:
                 st.markdown("#### 🔁 After Losing Pistol (LL/LW)")
                 filtered_loss = map_conversions[map_conversions['Conversion'].isin(['LL', 'LW'])]
@@ -829,7 +827,6 @@ if st.session_state.active_tab == 3:
 # ── TAB 4: PLAYER STATS ────────────────────────────────────────────────────────
 if st.session_state.active_tab == 4:
     st.subheader("🧑‍💼 Player Agent Stats")
-
     try:
         player_df = pd.read_csv("form.csv")
     except Exception as e:
@@ -839,19 +836,15 @@ if st.session_state.active_tab == 4:
     if not player_df.empty:
         player_df['Date'] = pd.to_datetime(player_df['Date'], errors='coerce')
         player_df = player_df.dropna(subset=['Date'])
-
         all_players = sorted(player_df['Player'].dropna().unique())
-        all_maps = sorted(player_df['Column 1'].dropna().unique())
-
+        all_maps    = sorted(player_df['Column 1'].dropna().unique())
         min_date = player_df['Date'].min().date()
         max_date = player_df['Date'].max().date()
-
         col1, col2 = st.columns(2)
         selected_player = col1.selectbox("Select a player:", all_players)
-        start_date = col1.date_input("Start date:", min_value=min_date, max_value=max_date, value=min_date)
-        end_date = col2.date_input("End date:", min_value=min_date, max_value=max_date, value=max_date)
-        selected_map = col2.selectbox("Filter by Map:", ["All"] + all_maps)
-
+        start_date      = col1.date_input("Start date:", min_value=min_date, max_value=max_date, value=min_date)
+        end_date        = col2.date_input("End date:",   min_value=min_date, max_value=max_date, value=max_date)
+        selected_map    = col2.selectbox("Filter by Map:", ["All"] + all_maps)
         filtered = player_df[
             (player_df['Player'] == selected_player) &
             (player_df['Date'].dt.date >= start_date) &
@@ -859,27 +852,16 @@ if st.session_state.active_tab == 4:
         ]
         if selected_map != "All":
             filtered = filtered[filtered['Column 1'] == selected_map]
-
         if not filtered.empty:
             agent_stats = filtered.groupby('Agent').agg(
-                Rounds=('Rounds', 'sum'),
-                Kills=('Kills', 'sum'),
-                Deaths=('Deaths', 'sum'),
-                Assists=('Assists', 'sum'),
-                ACS=('ACS', 'mean'),
-                FK=('FK', 'sum'),
-                Plants=('Plants', 'sum'),
-                FD=('FD', 'sum'),
-                FD_Def=('FD Def', 'sum')
+                Rounds=('Rounds','sum'), Kills=('Kills','sum'), Deaths=('Deaths','sum'),
+                Assists=('Assists','sum'), ACS=('ACS','mean'), FK=('FK','sum'),
+                Plants=('Plants','sum'), FD=('FD','sum'), FD_Def=('FD Def','sum') if 'FD Def' in filtered.columns else ('FD','sum')
             ).reset_index()
-
-            agent_stats['K/D Ratio'] = agent_stats['Kills'] / agent_stats['Deaths'].replace(0, float('nan'))
+            agent_stats['K/D Ratio']     = agent_stats['Kills'] / agent_stats['Deaths'].replace(0, float('nan'))
             agent_stats['K+A per Round'] = (agent_stats['Kills'] + agent_stats['Assists']) / agent_stats['Rounds'].replace(0, float('nan'))
-            agent_stats['FK-FD'] = agent_stats['FK'] - agent_stats['FD']
-            agent_stats['% FD on Def'] = (agent_stats['FD_Def'] / agent_stats['FD'].replace(0, float('nan'))) * 100
-            agent_stats['% FD on Def'] = agent_stats['% FD on Def'].fillna(0)
-
-            display_df = agent_stats.round(2)[['Agent','Rounds','Kills','Deaths','Assists','ACS','FK-FD','Plants','% FD on Def','K/D Ratio','K+A per Round']]
+            agent_stats['FK-FD']         = agent_stats['FK'] - agent_stats['FD']
+            display_df = agent_stats.round(2)[['Agent','Rounds','Kills','Deaths','Assists','ACS','FK-FD','Plants','K/D Ratio','K+A per Round']]
             st.markdown(f"### 🔍 Agent Performance for {selected_player} ({start_date} → {end_date})")
             st.dataframe(display_df, use_container_width=True)
         else:
@@ -890,57 +872,48 @@ if st.session_state.active_tab == 4:
     with st.expander("🐝 Player ACS Beeswarm Plot"):
         import seaborn as sns
         import matplotlib.pyplot as plt
-
-        df = pd.read_csv("foracs.csv")
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        df['ACS'] = pd.to_numeric(df['ACS'], errors='coerce')
-
-        players = sorted(df['Player'].dropna().unique())
-        agents = sorted(df['Agent'].dropna().unique())
-        maps = sorted(df['Map'].dropna().unique())
-        dates = sorted(df['Date'].dropna().dt.date.unique())
-
+        df_bee = pd.read_csv("foracs.csv")
+        df_bee['Date'] = pd.to_datetime(df_bee['Date'], errors='coerce')
+        df_bee['ACS']  = pd.to_numeric(df_bee['ACS'], errors='coerce')
+        players_bee = sorted(df_bee['Player'].dropna().unique())
+        agents_bee  = sorted(df_bee['Agent'].dropna().unique())
+        maps_bee    = sorted(df_bee['Map'].dropna().unique())
+        dates_bee   = sorted(df_bee['Date'].dropna().dt.date.unique())
         col1, col2 = st.columns(2)
-        selected_player_bee = col1.selectbox("Select Player", players, key='bee_player')
-        selected_agents = col2.multiselect("Filter by Agent(s)", agents, default=agents)
-        selected_maps = st.multiselect("Filter by Map(s)", maps, default=maps)
-        start_date_bee = st.date_input("Start Date", value=min(dates), min_value=min(dates), max_value=max(dates), key='bee_start')
-        end_date_bee = st.date_input("End Date", value=max(dates), min_value=min(dates), max_value=max(dates), key='bee_end')
-
-        filtered_df = df[
-            (df['Player'] == selected_player_bee) &
-            (df['Agent'].isin(selected_agents)) &
-            (df['Map'].isin(selected_maps)) &
-            (df['Date'].dt.date >= start_date_bee) &
-            (df['Date'].dt.date <= end_date_bee)
+        selected_player_bee = col1.selectbox("Select Player", players_bee, key='bee_player')
+        selected_agents_bee = col2.multiselect("Filter by Agent(s)", agents_bee, default=agents_bee)
+        selected_maps_bee   = st.multiselect("Filter by Map(s)", maps_bee, default=maps_bee)
+        start_date_bee = st.date_input("Start Date", value=min(dates_bee), min_value=min(dates_bee), max_value=max(dates_bee), key='bee_start')
+        end_date_bee   = st.date_input("End Date",   value=max(dates_bee), min_value=min(dates_bee), max_value=max(dates_bee), key='bee_end')
+        filtered_bee = df_bee[
+            (df_bee['Player'] == selected_player_bee) &
+            (df_bee['Agent'].isin(selected_agents_bee)) &
+            (df_bee['Map'].isin(selected_maps_bee)) &
+            (df_bee['Date'].dt.date >= start_date_bee) &
+            (df_bee['Date'].dt.date <= end_date_bee)
         ]
-
-        if not filtered_df.empty:
-            avg_acs = filtered_df['ACS'].mean()
-            fig, ax = plt.subplots(figsize=(10, 5))
-            fig.patch.set_facecolor('#000000')
+        if not filtered_bee.empty:
+            avg_acs = filtered_bee['ACS'].mean()
+            fig_bee, ax = plt.subplots(figsize=(10, 5))
+            fig_bee.patch.set_facecolor('#000000')
             ax.set_facecolor('#000000')
-            ax.spines['top'].set_visible(False)
-            ax.spines['right'].set_visible(False)
-            ax.spines['left'].set_color('#ffffff')
-            ax.spines['bottom'].set_color('#ffffff')
-            palette = sns.color_palette("husl", len(filtered_df['Agent'].unique()))
-            sns.swarmplot(data=filtered_df, x='Map', y='ACS', hue='Agent', palette=palette, ax=ax)
+            ax.spines['top'].set_visible(False); ax.spines['right'].set_visible(False)
+            ax.spines['left'].set_color('#ffffff'); ax.spines['bottom'].set_color('#ffffff')
+            palette = sns.color_palette("husl", len(filtered_bee['Agent'].unique()))
+            sns.swarmplot(data=filtered_bee, x='Map', y='ACS', hue='Agent', palette=palette, ax=ax)
             ax.axhline(avg_acs, color='yellow', linestyle='--', linewidth=1.5)
-            ax.text(x=0.5, y=avg_acs+2, s=f"Avg ACS: {avg_acs:.1f}", color='yellow', fontsize=10, ha='left')
+            ax.text(x=0.5, y=avg_acs+2, s=f"Avg ACS: {avg_acs:.1f}", color='yellow', fontsize=10)
             ax.set_title(f"{selected_player_bee}'s ACS by Agent & Map", color='#FDB913', fontsize=14)
-            ax.set_ylabel("ACS", color='white')
-            ax.set_xlabel("Map", color='white')
+            ax.set_ylabel("ACS", color='white'); ax.set_xlabel("Map", color='white')
             ax.tick_params(colors='white')
             ax.legend(title="Agent", loc='best', facecolor='#1a1a1a', labelcolor='white', title_fontsize=10, fontsize=9)
-            st.pyplot(fig)
+            st.pyplot(fig_bee)
         else:
             st.info("No ACS data for selected filters.")
 
 # ── TAB 5: COMPARE ─────────────────────────────────────────────────────────────
 if st.session_state.active_tab == 5:
     st.subheader("🎚 Player vs VCT Benchmark Comparison")
-
     try:
         player_df = pd.read_csv("form.csv")
     except Exception as e:
@@ -950,17 +923,15 @@ if st.session_state.active_tab == 5:
     if not player_df.empty:
         player_df['Date'] = pd.to_datetime(player_df['Date'], errors='coerce')
         player_df = player_df.dropna(subset=['Date'])
-
         all_players = sorted(player_df['Player'].dropna().unique())
-        all_maps = sorted(player_df['Column 1'].dropna().unique())
+        all_maps    = sorted(player_df['Column 1'].dropna().unique())
         min_date = player_df['Date'].min().date()
         max_date = player_df['Date'].max().date()
-
         col1, col2 = st.columns(2)
         selected_player = col1.selectbox("Select a player:", all_players, key='compare_player')
-        start_date = col1.date_input("Start date:", value=min_date, min_value=min_date, max_value=max_date, key='compare_start')
-        end_date = col2.date_input("End date:", value=max_date, min_value=min_date, max_value=max_date, key='compare_end')
-        selected_map = col2.selectbox("Filter by Map:", ["All"] + all_maps, key='compare_map')
+        start_date      = col1.date_input("Start date:", value=min_date, min_value=min_date, max_value=max_date, key='compare_start')
+        end_date        = col2.date_input("End date:",   value=max_date, min_value=min_date, max_value=max_date, key='compare_end')
+        selected_map    = col2.selectbox("Filter by Map:", ["All"] + all_maps, key='compare_map')
 
         agent_roles = {
             'Jett':'Duelist','Raze':'Duelist','Reyna':'Duelist','Yoru':'Duelist','Phoenix':'Duelist','Iso':'Duelist','Waylay':'Duelist','Neon':'Duelist',
@@ -984,10 +955,7 @@ if st.session_state.active_tab == 5:
             filtered = filtered[filtered['Column 1'] == selected_map]
 
         if not filtered.empty:
-            if 'Atk_Entry' in filtered.columns:
-                filtered['Atk_Entry'] = filtered['Atk_Entry'].fillna(0)
-
-            for col in ['Rounds','Kills','Deaths','Assists','ACS','FK','FBSR','FKPR','KPR','Atk_Entry','FD','Multi-Kills']:
+            for col in ['Rounds','Kills','Deaths','Assists','ACS','FK','FBSR','FKPR','KPR','Atk_Entry','FD','Multi_Kills']:
                 if col in filtered.columns:
                     filtered[col] = pd.to_numeric(filtered[col].astype(str).str.replace('%','',regex=False), errors='coerce')
 
@@ -998,16 +966,15 @@ if st.session_state.active_tab == 5:
                 FKPR=('FKPR','mean'), KPR=('KPR','mean'), Atk_Entry=('Atk_Entry','mean'),
                 FD=('FD','mean'), Anchor_Time=('Anchor_Time','mean')
             ).reset_index()
-
-            agent_stats['K/D Ratio'] = agent_stats['Kills'] / agent_stats['Deaths'].replace(0, float('nan'))
+            agent_stats['K/D Ratio']     = agent_stats['Kills'] / agent_stats['Deaths'].replace(0, float('nan'))
             agent_stats['K+A per Round'] = (agent_stats['Kills'] + agent_stats['Assists']) / agent_stats['Rounds'].replace(0, float('nan'))
-            agent_stats['Role'] = agent_stats['Agent'].map(agent_roles)
+            agent_stats['Role']          = agent_stats['Agent'].map(agent_roles)
 
             selected_role = st.selectbox("Select Role:", sorted(vct_benchmarks.keys()), key='compare_role')
-            role_agents = agent_stats[agent_stats['Role'] == selected_role]
+            role_agents   = agent_stats[agent_stats['Role'] == selected_role]
 
             if not role_agents.empty:
-                benchmark = vct_benchmarks[selected_role]
+                benchmark  = vct_benchmarks[selected_role]
                 player_avg = {}
                 for stat in benchmark:
                     if stat == 'FK':
@@ -1020,35 +987,34 @@ if st.session_state.active_tab == 5:
                         val = role_agents[stat].mean() if stat in role_agents.columns else 0
                         player_avg[stat] = val if pd.notna(val) else 0
 
-                norm_base = {'ACS':300,'K/D Ratio':2.0,'FK':0.3,'K+A per Round':1.2,'KPR':1.2,'FBSR':1.0,'FKPR':0.3,'Atk_Entry':1.0,'FD':20.0,'Assists':20.0,'Multi_Kills':0.3,'Anchor_Time':80.0}
-
-                categories = list(benchmark.keys())
-                player_values = [player_avg.get(s,0) / norm_base[s] for s in categories]
+                norm_base  = {'ACS':300,'K/D Ratio':2.0,'FK':0.3,'K+A per Round':1.2,'KPR':1.2,'FBSR':1.0,'FKPR':0.3,'Atk_Entry':1.0,'FD':20.0,'Assists':20.0,'Multi_Kills':0.3,'Anchor_Time':80.0}
+                categories       = list(benchmark.keys())
+                player_values    = [player_avg.get(s,0) / norm_base[s] for s in categories]
                 benchmark_values = [benchmark.get(s,0) / norm_base[s] for s in categories]
 
-                fig = go.Figure()
-                fig.add_trace(go.Scatterpolar(r=player_values, theta=categories, fill='toself', name=selected_player, line=dict(color="#FDB913")))
-                fig.add_trace(go.Scatterpolar(r=benchmark_values, theta=categories, fill='toself', name=f"VCT {selected_role} Avg", line=dict(color="#444444")))
+                fig_radar = go.Figure()
+                fig_radar.add_trace(go.Scatterpolar(r=player_values,    theta=categories, fill='toself', name=selected_player,          line=dict(color="#FDB913")))
+                fig_radar.add_trace(go.Scatterpolar(r=benchmark_values, theta=categories, fill='toself', name=f"VCT {selected_role} Avg", line=dict(color="#444444")))
 
                 raw_values = []
                 for stat in categories:
-                    val = player_avg[stat]
+                    val   = player_avg[stat]
                     bmark = benchmark[stat]
-                    diff = val - bmark
-                    sign = '+' if diff >= 0 else ''
+                    diff  = val - bmark
+                    sign  = '+' if diff >= 0 else ''
                     color = "#14532d" if diff >= 0 else "#7f1d1d"
                     if stat in ['FBSR','FKPR','Atk_Entry']:
                         raw_values.append(f"<span style='color:{color}'><b>{stat}</b>: {sign}{diff*100:.1f}%</span>")
                     else:
                         raw_values.append(f"<span style='color:{color}'><b>{stat}</b>: {sign}{diff:.2f}</span>")
 
-                fig.add_annotation(
+                fig_radar.add_annotation(
                     text="<br>".join(raw_values), showarrow=False, align="left",
                     x=0.95, y=0.95, xref="paper", yref="paper",
                     bordercolor="#666", borderwidth=1, bgcolor="rgba(0,0,0,0.85)",
                     font=dict(color="white", size=12)
                 )
-                fig.update_layout(
+                fig_radar.update_layout(
                     polar=dict(
                         bgcolor="#000000",
                         radialaxis=dict(visible=False, showticklabels=False, ticks='', showline=False, gridcolor="#333333"),
@@ -1060,7 +1026,7 @@ if st.session_state.active_tab == 5:
                     title=dict(text=f"{selected_role} Stats vs VCT Benchmark", font=dict(size=16, color='#FDB913')),
                     margin=dict(l=40, r=40, t=60, b=40)
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig_radar, use_container_width=True)
             else:
                 st.info("No agents played in the selected role during this period.")
         else:
