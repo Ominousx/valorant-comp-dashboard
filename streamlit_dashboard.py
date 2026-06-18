@@ -1,194 +1,3 @@
-import streamlit as st
-import pandas as pd
-from PIL import Image
-import os
-import plotly.express as px
-import plotly.graph_objects as go
-import base64
-
-# ── Auth ───────────────────────────────────────────────────────────────────────
-USERNAME = "moon"
-PASSWORD = "bleh"
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    st.title("🔒 Scrim Dashboard Login")
-    username_input = st.text_input("Username")
-    password_input = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username_input == USERNAME and password_input == PASSWORD:
-            st.session_state.logged_in = True
-            st.rerun()
-        else:
-            st.error("Incorrect username or password")
-    st.stop()
-
-def get_base64_image(path):
-    with open(path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
-
-st.set_page_config(page_title="Valorant Scrim Dashboard", layout="wide")
-encoded_bg = get_base64_image("wallt.png")
-st.markdown(f"""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
-    * {{ font-family: 'Rajdhani', sans-serif !important; }}
-    body {{
-        background-image: url("data:image/jpg;base64,{encoded_bg}");
-        background-size: cover; background-position: center;
-        background-attachment: fixed; background-repeat: no-repeat;
-        color: #ffffff; font-family: 'Rajdhani', sans-serif !important;
-    }}
-    .stApp {{ background-color: rgba(0,0,0,0.85); font-family: 'Rajdhani', sans-serif !important; }}
-    .block-container {{ padding: 2rem; border-radius: 12px; font-family: 'Rajdhani', sans-serif !important; }}
-    h1,h2,h3,h4,h5,h6,.stTabs,.stButton,p,div,span,label,input,select,textarea,button {{
-        font-family: 'Rajdhani', sans-serif !important; color: #FDB913;
-    }}
-    .stDataFrame,.stTable {{ background-color: #1a1a1a; font-family: 'Rajdhani', sans-serif !important; }}
-    </style>
-""", unsafe_allow_html=True)
-
-st.title("Valorant Scrim Dashboard")
-st.image("tyloo_logo.png", width=100)
-
-# ── Load CSVs ──────────────────────────────────────────────────────────────────
-try:
-    form_df = pd.read_csv("form.csv")
-    form_df = form_df[['Column 1', 'Agent', 'Result']].dropna().reset_index(drop=True)
-except Exception as e:
-    form_df = pd.DataFrame()
-    st.warning(f"⚠️ Couldn't load form.csv: {e}")
-
-@st.cache_data
-def load_and_aggregate_matches(path="Advanced_Data-_Sheet1.csv"):
-    """Read round-level data and aggregate into match-level rows."""
-    raw = pd.read_csv(path)
-    raw.columns = raw.columns.str.strip()
-    for col in ['Result', 'Side', 'Site', 'Plant XvY', 'Pistol']:
-        if col in raw.columns:
-            raw[col] = raw[col].astype(str).str.strip().replace('nan', '')
-
-    records = []
-    for (map_name, team, date), match in raw.groupby(['Map', 'Team', 'Date'], sort=False):
-        match = match.sort_values('Round').reset_index(drop=True)
-        tier = match['Tier'].dropna().iloc[0] if 'Tier' in match.columns and match['Tier'].notna().any() else None
-
-        r1  = match[match['Round'] == 1].iloc[0]  if len(match[match['Round'] == 1])  > 0 else None
-        r13 = match[match['Round'] == 13].iloc[0] if len(match[match['Round'] == 13]) > 0 else None
-        first_pistol  = 1 if (r1  is not None and r1['Result'].lower()  == 'win') else 0
-        second_pistol = 1 if (r13 is not None and r13['Result'].lower() == 'win') else 0
-        start_side    = r1['Side'] if r1 is not None else None
-
-        first_half  = match[match['Round'] <= 12]
-        second_half = match[match['Round'] >= 13]
-        first_rounds_won  = (first_half['Result'].str.lower()  == 'win').sum()
-        second_rounds_won = (second_half['Result'].str.lower() == 'win').sum()
-        first_half_wr  = round(first_rounds_won  / len(first_half),  2) if len(first_half)  > 0 else None
-        second_half_wr = round(second_rounds_won / len(second_half), 2) if len(second_half) > 0 else None
-
-        def conversion(pistol_won, round_num):
-            r = match[match['Round'] == round_num]
-            if len(r) == 0:
-                return None
-            won = r.iloc[0]['Result'].lower() == 'win'
-            if pistol_won:
-                return 'WW' if won else 'WL'
-            else:
-                return 'LW' if won else 'LL'
-
-        if start_side == 'Attack':
-            atk_2nd = conversion(first_pistol,  2)
-            def_2nd = conversion(second_pistol, 14)
-        else:
-            def_2nd = conversion(first_pistol,  2)
-            atk_2nd = conversion(second_pistol, 14)
-
-        planted    = match[(match['Time at Plant'].notna()) & (match['Time at Plant'].astype(str).str.strip() != '')]
-        atk_plants = planted[planted['Side'] == 'Attack']
-        def_plants = planted[planted['Side'] == 'Defence']
-        atk_pp = round((atk_plants['Result'].str.lower() == 'win').sum() / len(atk_plants), 2) if len(atk_plants) > 0 else 0
-        def_pp = round((def_plants['Result'].str.lower() == 'win').sum() / len(def_plants), 2) if len(def_plants) > 0 else 0
-
-        site_pp = {}
-        for site in ['A', 'B', 'C']:
-            sa = atk_plants[atk_plants['Site'] == site]
-            sd = def_plants[def_plants['Site'] == site]
-            site_pp[f'Atk_PP_{site}'] = round((sa['Result'].str.lower() == 'win').sum() / len(sa), 2) if len(sa) > 0 else None
-            site_pp[f'Def_PP_{site}'] = round((sd['Result'].str.lower() == 'win').sum() / len(sd), 2) if len(sd) > 0 else None
-
-        total_won  = (match['Result'].str.lower() == 'win').sum()
-        total_lost = (match['Result'].str.lower() == 'loss').sum()
-        outcome = 'Win' if total_won > total_lost else 'Loss' if total_lost > total_won else 'Draw'
-
-        records.append({
-            'Date': date, 'Map': map_name, 'Team': team, 'Start': start_side,
-            'First Pistol': first_pistol, 'First Rounds': first_rounds_won, 'First Half WR': first_half_wr,
-            'Second Pistol': second_pistol, 'Second Rounds': second_rounds_won, 'Second Half WR': second_half_wr,
-            'Atk_PP_Success': atk_pp, 'Def_PP_Success': def_pp,
-            **site_pp,
-            'Atk 2nd': atk_2nd, 'Def 2nd': def_2nd,
-            'Outcome': outcome, 'Tier': tier,
-        })
-
-    out = pd.DataFrame(records)
-    col_order = [
-        'Date', 'Map', 'Team', 'Start',
-        'First Pistol', 'First Rounds', 'First Half WR',
-        'Second Pistol', 'Second Rounds', 'Second Half WR',
-        'Atk_PP_Success', 'Def_PP_Success',
-        'Atk_PP_A', 'Atk_PP_B', 'Atk_PP_C',
-        'Def_PP_A', 'Def_PP_B', 'Def_PP_C',
-        'Atk 2nd', 'Def 2nd', 'Outcome', 'Tier'
-    ]
-    out = out[[c for c in col_order if c in out.columns]]
-    return out
-
-
-@st.cache_data
-def load_raw_rounds(path="Advanced_Data-_Sheet1.csv"):
-    """Return cleaned round-level data for round-grain analyses (e.g. site post-plant)."""
-    raw = pd.read_csv(path)
-    raw.columns = raw.columns.str.strip()
-    for col in ['Result', 'Side', 'Site', 'Plant XvY', 'Pistol', 'Team', 'Map']:
-        if col in raw.columns:
-            raw[col] = raw[col].astype(str).str.strip().replace('nan', '')
-    if 'Date' in raw.columns:
-        raw['Date'] = pd.to_datetime(raw['Date'], errors='coerce')
-    if 'Tier' in raw.columns:
-        raw['Tier'] = pd.to_numeric(raw['Tier'], errors='coerce')
-    # Mark plant rounds
-    raw['Planted'] = raw['Time at Plant'].notna() & (raw['Time at Plant'].astype(str).str.strip() != '')
-    return raw
-
-try:
-    score_df = load_and_aggregate_matches("Advanced_Data-_Sheet1.csv")
-    score_df['Date'] = pd.to_datetime(score_df['Date'], errors='coerce')
-    if 'Tier' in score_df.columns:
-        score_df['Tier'] = pd.to_numeric(score_df['Tier'], errors='coerce').fillna(1).astype(int)
-    else:
-        score_df['Tier'] = 1
-    rounds_df = load_raw_rounds("Advanced_Data-_Sheet1.csv")
-except Exception as e:
-    score_df = pd.DataFrame()
-    rounds_df = pd.DataFrame()
-    st.warning(f"⚠️ Couldn't load/aggregate Advanced_Data-_Sheet1.csv: {e}")
-
-try:
-    foracs_df = pd.read_csv("foracs.csv")
-except Exception as e:
-    foracs_df = pd.DataFrame()
-    st.warning(f"⚠️ Couldn't load foracs.csv: {e}")
-
-# ── Sidebar Tier Filter ────────────────────────────────────────────────────────
-TIER_LABELS = {1: "Tier 1 — Top", 2: "Tier 2 — Mid", 3: "Tier 3 — Lower"}
-TIER_COLORS = {1: "#FDB913", 2: "#9ca3af", 3: "#b45309"}
-
-with st.sidebar:
-    st.markdown("## 🏆 Scrim Tier Filter")
-    st.markdown("Filter all stats by opponent tier:")
     available_tiers = sorted(score_df['Tier'].unique()) if not score_df.empty else [1, 2, 3]
     selected_tiers = st.multiselect(
         "Select Tier(s)", options=available_tiers, default=available_tiers,
@@ -238,7 +47,7 @@ st.markdown("""
     .icon-tab-container { position:relative; width:100%; display:flex; flex-direction:column; align-items:center; margin-bottom:0.375rem !important; }
     .icon-display { display:flex; align-items:center; justify-content:center; margin-bottom:8px; cursor:pointer; padding:8px; border-radius:8px; transition:all 0.2s ease; }
     .icon-display:hover { background:rgba(253,185,19,0.1); transform:translateY(-2px); }
-    .icon-display.active { background:#FDB913 !important; }
+    .icon-display.active { background:#E63946 !important; }
     hr { margin-top:0.375rem !important; margin-bottom:0.375rem !important; border:none !important; height:1px !important; background-color:rgba(255,255,255,0.1) !important; }
     </style>
 """, unsafe_allow_html=True)
@@ -303,15 +112,15 @@ if st.session_state.active_tab == 0:
             winrate_df, x='Win Rate %', y='Map', orientation='h',
             text=winrate_df['Win Rate %'].apply(lambda x: f"{x:.1f}%"),
             title="Map Win Rates",
-            color='Win Rate %', color_continuous_scale=['#ff0000', '#FDB913']
+            color='Win Rate %', color_continuous_scale=['#ff0000', '#E63946']
         )
         fig_map_wr.update_traces(textposition='outside', marker_line_color='#000000', marker_line_width=1.2)
         fig_map_wr.update_layout(
             plot_bgcolor='#000000', paper_bgcolor='#000000',
-            font=dict(family='Rajdhani', size=14, color='#FDB913'),
-            title_font=dict(size=20, color='#FDB913'),
+            font=dict(family='Rajdhani', size=14, color='#E63946'),
+            title_font=dict(size=20, color='#E63946'),
             yaxis=dict(tickfont=dict(color='#ffffff'), categoryorder='total ascending', gridcolor='#333333'),
-            xaxis=dict(title='Win Rate (%)', title_font=dict(color='#FDB913'), tickfont=dict(color='#ffffff'), gridcolor='#333333', range=[0, 100])
+            xaxis=dict(title='Win Rate (%)', title_font=dict(color='#E63946'), tickfont=dict(color='#ffffff'), gridcolor='#333333', range=[0, 100])
         )
         st.plotly_chart(fig_map_wr, use_container_width=True)
 
@@ -327,7 +136,7 @@ if st.session_state.active_tab == 0:
         tier_map_summary['Tier Label'] = tier_map_summary['Tier'].map(lambda t: f"Tier {t}")
         fig_tier = px.bar(
             tier_map_summary, x='Map', y='Win Rate %', color='Tier Label',
-            color_discrete_map={'Tier 1': '#FDB913', 'Tier 2': '#9ca3af', 'Tier 3': '#b45309'},
+            color_discrete_map={'Tier 1': '#E63946', 'Tier 2': '#9ca3af', 'Tier 3': '#b45309'},
             barmode='group',
             text=tier_map_summary['Win Rate %'].apply(lambda x: f"{x:.0f}%"),
             title="Win Rate by Map & Tier"
@@ -335,8 +144,8 @@ if st.session_state.active_tab == 0:
         fig_tier.update_traces(textposition='outside', marker_line_color='#333', marker_line_width=1)
         fig_tier.update_layout(
             plot_bgcolor='#000000', paper_bgcolor='#000000',
-            font=dict(family='Rajdhani', color='#FDB913'),
-            title_font=dict(size=18, color='#FDB913'),
+            font=dict(family='Rajdhani', color='#E63946'),
+            title_font=dict(size=18, color='#E63946'),
             xaxis=dict(tickfont=dict(color='#fff'), gridcolor='#333'),
             yaxis=dict(range=[0, 110], tickfont=dict(color='#fff'), gridcolor='#333'),
             legend=dict(font=dict(color='#fff'))
@@ -391,7 +200,7 @@ if st.session_state.active_tab == 1:
             st.markdown("""
             <style>
             .composition-bar { display:flex; align-items:center; background:#2a2a2a; border:1px solid #333; border-radius:4px; padding:8px; margin:3px 0; min-height:45px; position:relative; overflow:hidden; }
-            .bar-background { position:absolute; left:180px; top:0; height:100%; background:#FDB913; border-radius:0 4px 4px 0; z-index:1; }
+            .bar-background { position:absolute; left:180px; top:0; height:100%; background:#E63946; border-radius:0 4px 4px 0; z-index:1; }
             .agents-container { display:flex; gap:4px; align-items:center; min-width:170px; z-index:2; position:relative; }
             .agent-icon-img { width:28px; height:28px; border-radius:3px; border:1px solid rgba(255,255,255,0.2); }
             .win-rate-info { margin-left:auto; z-index:2; position:relative; color:white; font-weight:bold; text-align:right; padding-right:12px; }
@@ -477,11 +286,11 @@ if st.session_state.active_tab == 1:
             ))
             fig_heat.update_layout(
                 title="Win Rate % by Player and Agent",
-                xaxis=dict(title='Agent', side='bottom', tickangle=-45, tickfont=dict(family='Rajdhani', color='#FDB913')),
-                yaxis=dict(title='Player', tickfont=dict(family='Rajdhani', color='#FDB913'), autorange='reversed'),
+                xaxis=dict(title='Agent', side='bottom', tickangle=-45, tickfont=dict(family='Rajdhani', color='#E63946')),
+                yaxis=dict(title='Player', tickfont=dict(family='Rajdhani', color='#E63946'), autorange='reversed'),
                 plot_bgcolor='#000000', paper_bgcolor='#000000',
-                font=dict(family='Rajdhani', color='#FDB913'),
-                title_font=dict(size=18, color='#FDB913'),
+                font=dict(family='Rajdhani', color='#E63946'),
+                title_font=dict(size=18, color='#E63946'),
                 margin=dict(l=80, r=40, t=60, b=120),
                 height=max(400, 48*len(pivot.index)+120),
                 width=max(400, 48*len(pivot.columns)+100)
@@ -562,7 +371,7 @@ if st.session_state.active_tab == 2:
         styled_df = summary[display_cols].style\
             .map(highlight_win_rates, subset=['Avg_Atk_WR', 'Avg_Def_WR', 'Round WR'])\
             .set_properties(**{'text-align': 'center'})\
-            .set_table_styles([{'selector': 'th', 'props': [('background-color','#1a1a1a'),('color','#FDB913'),('text-align','center')]}])
+            .set_table_styles([{'selector': 'th', 'props': [('background-color','#1a1a1a'),('color','#E63946'),('text-align','center')]}])
         st.dataframe(styled_df, use_container_width=True)
 
         # Per-tier breakdown
@@ -591,13 +400,13 @@ if st.session_state.active_tab == 2:
         fig_tier_ins = px.bar(
             tier_long, x='Tier Label', y='Value', color='Metric', barmode='group',
             text=tier_long['Value'].apply(lambda x: f"{x:.1f}%"),
-            color_discrete_map={'Win Rate %': '#FDB913', 'Atk WR %': '#f97316', 'Def WR %': '#60a5fa'},
+            color_discrete_map={'Win Rate %': '#E63946', 'Atk WR %': '#f97316', 'Def WR %': '#60a5fa'},
             title="Win / Atk / Def WR by Tier"
         )
         fig_tier_ins.update_traces(textposition='outside')
         fig_tier_ins.update_layout(
             plot_bgcolor='#000000', paper_bgcolor='#000000',
-            font=dict(family='Rajdhani', color='#FDB913'),
+            font=dict(family='Rajdhani', color='#E63946'),
             yaxis=dict(range=[0, 110], gridcolor='#333', tickfont=dict(color='#fff')),
             xaxis=dict(tickfont=dict(color='#fff')),
             legend=dict(font=dict(color='#fff'))
@@ -612,7 +421,7 @@ if st.session_state.active_tab == 2:
         plot_df = plot_df.melt(id_vars='Map', var_name='Side', value_name='Win Rate (%)')
         fig = px.bar(
             plot_df, x='Map', y='Win Rate (%)', color='Side',
-            color_discrete_map={'Attack': '#FDB913', 'Defense': '#ffffff'},
+            color_discrete_map={'Attack': '#E63946', 'Defense': '#ffffff'},
             barmode='group',
             text=plot_df['Win Rate (%)'].apply(lambda x: f"{x:.1f}%"),
             title="Attack vs Defense Win Rates by Map"
@@ -620,7 +429,7 @@ if st.session_state.active_tab == 2:
         fig.update_traces(textposition='outside', marker_line_color='#333333', marker_line_width=1.2, width=0.4)
         fig.update_layout(
             plot_bgcolor='#000000', paper_bgcolor='#000000',
-            font=dict(color='#FDB913', family='Rajdhani'),
+            font=dict(color='#E63946', family='Rajdhani'),
             title_font=dict(color='#FDB913', size=20),
             xaxis=dict(tickangle=-25, gridcolor='#333333'),
             yaxis=dict(range=[0, 100], gridcolor='#333333')
