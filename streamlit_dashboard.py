@@ -565,45 +565,6 @@ if st.session_state.active_tab == 2:
             .set_table_styles([{'selector': 'th', 'props': [('background-color','#1a1a1a'),('color','#E63946'),('text-align','center')]}])
         st.dataframe(styled_df, use_container_width=True)
 
-        # Per-tier breakdown
-        st.markdown("### 🏆 Round Win Rate by Tier")
-        tier_insight = score_df_filtered.copy()
-        if selected_map != "All":
-            tier_insight = tier_insight[tier_insight['Map'] == selected_map]
-        if start_date and end_date:
-            tier_insight = tier_insight[(tier_insight['Date'] >= start_date) & (tier_insight['Date'] <= end_date)]
-        tier_insight['Atk WR Derived'] = tier_insight.apply(lambda row: extract_wr(row, 'Attack'),  axis=1)
-        tier_insight['Def WR Derived'] = tier_insight.apply(lambda row: extract_wr(row, 'Defence'), axis=1)
-        tier_summary = tier_insight.groupby('Tier').agg(
-            Games=('Outcome', 'count'),
-            Wins=('Outcome', lambda x: (x.str.lower() == 'win').sum()),
-            Avg_Atk_WR=('Atk WR Derived', 'mean'),
-            Avg_Def_WR=('Def WR Derived', 'mean'),
-        ).reset_index()
-        tier_summary['Win Rate %'] = tier_summary['Wins'] / tier_summary['Games'] * 100
-        tier_summary['Atk WR %']   = tier_summary['Avg_Atk_WR'] * 100
-        tier_summary['Def WR %']   = tier_summary['Avg_Def_WR'] * 100
-        tier_summary['Tier Label'] = tier_summary['Tier'].map(lambda t: f"Tier {t}")
-        tier_long = tier_summary.melt(
-            id_vars='Tier Label', value_vars=['Win Rate %', 'Atk WR %', 'Def WR %'],
-            var_name='Metric', value_name='Value'
-        )
-        fig_tier_ins = px.bar(
-            tier_long, x='Tier Label', y='Value', color='Metric', barmode='group',
-            text=tier_long['Value'].apply(lambda x: f"{x:.1f}%"),
-            color_discrete_map={'Win Rate %': '#E63946', 'Atk WR %': '#f97316', 'Def WR %': '#60a5fa'},
-            title="Win / Atk / Def WR by Tier"
-        )
-        fig_tier_ins.update_traces(textposition='outside')
-        fig_tier_ins.update_layout(
-            plot_bgcolor='#000000', paper_bgcolor='#000000',
-            font=dict(family='Rajdhani', color='#E63946'),
-            yaxis=dict(range=[0, 110], gridcolor='#333', tickfont=dict(color='#fff')),
-            xaxis=dict(tickfont=dict(color='#fff')),
-            legend=dict(font=dict(color='#fff'))
-        )
-        st.plotly_chart(fig_tier_ins, use_container_width=True)
-
         # Atk vs Def chart
         plot_df = summary[['Map', 'Raw_Atk_WR', 'Raw_Def_WR']].copy()
         plot_df.rename(columns={'Raw_Atk_WR': 'Attack', 'Raw_Def_WR': 'Defense'}, inplace=True)
@@ -780,31 +741,6 @@ if st.session_state.active_tab == 3:
             yaxis=dict(range=[0,100], title='Win Rate (%)', title_font=dict(color='#E63946'), tickfont=dict(color='#ffffff'), gridcolor='#333333')
         )
         st.plotly_chart(fig_pistol, use_container_width=True)
-
-        st.markdown("### 🏆 Pistol Win Rate by Tier")
-        pistol_tier = filtered_df.groupby('Tier').agg(
-            Total_Won=('Total Pistols Won', 'sum'),
-            Total_Played=('Map', 'count')
-        ).reset_index()
-        pistol_tier['Total_Played'] *= 2
-        pistol_tier['Pistol WR %']  = pistol_tier['Total_Won'] / pistol_tier['Total_Played'] * 100
-        pistol_tier['Tier Label']   = pistol_tier['Tier'].map(lambda t: f"Tier {t}")
-        fig_pt = px.bar(
-            pistol_tier, x='Tier Label', y='Pistol WR %',
-            text=pistol_tier['Pistol WR %'].apply(lambda x: f"{x:.1f}%"),
-            color='Tier Label',
-            color_discrete_map={'Tier 1': '#E63946', 'Tier 2': '#9ca3af', 'Tier 3': '#9a3412'},
-            title="Pistol Win Rate by Opponent Tier"
-        )
-        fig_pt.update_traces(textposition='outside')
-        fig_pt.update_layout(
-            plot_bgcolor='#000000', paper_bgcolor='#000000',
-            font=dict(family='Rajdhani', color='#E63946'),
-            yaxis=dict(range=[0,100], gridcolor='#333', tickfont=dict(color='#fff')),
-            xaxis=dict(tickfont=dict(color='#fff')),
-            showlegend=False
-        )
-        st.plotly_chart(fig_pt, use_container_width=True)
 
         st.markdown("### 🍰 2nd Round Outcomes by Map")
         if 'Atk 2nd' in filtered_df.columns and 'Def 2nd' in filtered_df.columns:
