@@ -6,6 +6,21 @@ import plotly.express as px
 import plotly.graph_objects as go
 import base64
 
+def parse_dates_mm_first(series):
+    """Parse dates in MM/DD/YYYY or MM-DD-YYYY format (form.csv, foracs.csv)."""
+    def _parse(d):
+        if pd.isna(d) or str(d).strip() == "":
+            return pd.NaT
+        d = str(d).strip()
+        for fmt in ["%m/%d/%Y", "%m-%d-%Y", "%d-%m-%Y"]:
+            try:
+                return pd.to_datetime(d, format=fmt)
+            except Exception:
+                continue
+        return pd.NaT
+    return series.apply(_parse)
+
+
 # ── Auth ───────────────────────────────────────────────────────────────────────
 USERNAME = "moon"
 PASSWORD = "bleh"
@@ -797,7 +812,7 @@ if st.session_state.active_tab == 4:
         player_df = pd.DataFrame()
 
     if not player_df.empty:
-        player_df['Date'] = pd.to_datetime(player_df['Date'], errors='coerce', dayfirst=True)
+        player_df['Date'] = parse_dates_mm_first(player_df['Date'])
         player_df = player_df.dropna(subset=['Date'])
         all_players = sorted(player_df['Player'].dropna().unique())
         all_maps    = sorted(player_df['Column 1'].dropna().unique())
@@ -836,7 +851,7 @@ if st.session_state.active_tab == 4:
         import seaborn as sns
         import matplotlib.pyplot as plt
         df_bee = pd.read_csv("foracs.csv")
-        df_bee['Date'] = pd.to_datetime(df_bee['Date'], errors='coerce', dayfirst=True)
+        df_bee['Date'] = parse_dates_mm_first(df_bee['Date'])
         df_bee['ACS']  = pd.to_numeric(df_bee['ACS'], errors='coerce')
         players_bee = sorted(df_bee['Player'].dropna().unique())
         agents_bee  = sorted(df_bee['Agent'].dropna().unique())
@@ -884,7 +899,7 @@ if st.session_state.active_tab == 5:
         player_df = pd.DataFrame()
 
     if not player_df.empty:
-        player_df['Date'] = pd.to_datetime(player_df['Date'], errors='coerce', dayfirst=True)
+        player_df['Date'] = parse_dates_mm_first(player_df['Date'])
         player_df = player_df.dropna(subset=['Date'])
         all_players = sorted(player_df['Player'].dropna().unique())
         all_maps    = sorted(player_df['Column 1'].dropna().unique())
