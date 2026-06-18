@@ -52,7 +52,7 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 st.title("Valorant Scrim Dashboard")
-st.image("wolves_logo.png", width=100)
+st.image("tyloo_logo.png", width=100)
 
 # ── Load CSVs ──────────────────────────────────────────────────────────────────
 try:
