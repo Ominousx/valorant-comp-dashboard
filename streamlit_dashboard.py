@@ -701,6 +701,147 @@ if st.session_state.active_tab == 2:
                     st.dataframe(display_site, use_container_width=True, hide_index=True)
                 else:
                     st.info(f"No site-level plant data for {selected_map_site} in selected filters.")
+
+        # ── Attack Tempo Analysis ─────────────────────────────────────────────
+        st.markdown("### ⏱️ Attack Tempo & Win Rate")
+        st.markdown(
+            "Rounds bucketed by time of first engagement on attack. "
+            "Round starts at **1:40** — lower time remaining = earlier/more aggressive entry."
+        )
+
+        if not rounds_df.empty:
+            tempo_rd = rounds_df[rounds_df['Tier'].fillna(1).astype(int).isin(selected_tiers)].copy() if 'Tier' in rounds_df.columns else rounds_df.copy()
+            tempo_rd = tempo_rd[tempo_rd['Side'] == 'Attack'].copy()
+            if selected_map != "All":
+                tempo_rd = tempo_rd[tempo_rd['Map'] == selected_map]
+            if start_date and end_date:
+                tempo_rd = tempo_rd[(tempo_rd['Date'] >= pd.Timestamp(start_date)) & (tempo_rd['Date'] <= pd.Timestamp(end_date))]
+
+            def time_to_seconds(t):
+                try:
+                    parts = str(t).strip().split(':')
+                    return int(parts[0]) * 60 + int(parts[1])
+                except:
+                    return None
+
+            tempo_rd['engage_secs'] = tempo_rd['Time to engagement'].apply(time_to_seconds)
+            tempo_rd = tempo_rd.dropna(subset=['engage_secs'])
+
+            bins   = [0,    40,           60,             75,           100]
+            labels = ['Very Early (≤0:40)', 'Early (0:41–1:00)', 'Mid (1:01–1:15)', 'Late (1:16–1:40)']
+            tempo_rd['Tempo'] = pd.cut(tempo_rd['engage_secs'], bins=bins, labels=labels)
+
+            if not tempo_rd.empty:
+                # ── Overall tempo bar chart ───────────────────────────────────
+                tempo_overall = tempo_rd.groupby('Tempo', observed=True).agg(
+                    Rounds=('Result', 'count'),
+                    Wins=('Result', lambda x: (x.str.lower() == 'win').sum())
+                ).reset_index()
+                tempo_overall['Win Rate %'] = (tempo_overall['Wins'] / tempo_overall['Rounds'] * 100).round(1)
+                tempo_overall['Label'] = tempo_overall.apply(
+                    lambda r: f"{r['Win Rate %']:.0f}%\n(n={r['Rounds']})", axis=1
+                )
+
+                TEMPO_COLORS = {
+                    'Very Early (≤0:40)':   '#60a5fa',
+                    'Early (0:41–1:00)':    '#34d399',
+                    'Mid (1:01–1:15)':      '#E63946',
+                    'Late (1:16–1:40)':     '#f97316',
+                }
+
+                fig_tempo = go.Figure()
+                for _, row in tempo_overall.iterrows():
+                    fig_tempo.add_trace(go.Bar(
+                        x=[row['Tempo']], y=[row['Win Rate %']],
+                        name=str(row['Tempo']),
+                        marker_color=TEMPO_COLORS.get(str(row['Tempo']), '#aaa'),
+                        text=f"{row['Win Rate %']:.0f}%<br><span style='font-size:11px'>n={row['Rounds']}</span>",
+                        textposition='outside',
+                        showlegend=False,
+                    ))
+                fig_tempo.add_hline(y=50, line_dash='dash', line_color='#666',
+                    annotation_text='50%', annotation_font_color='#aaa')
+                fig_tempo.update_layout(
+                    title='Attack Win Rate by Engagement Tempo',
+                    plot_bgcolor='#000000', paper_bgcolor='#000000',
+                    font=dict(family='Rajdhani', color='#E63946'),
+                    title_font=dict(size=18, color='#E63946'),
+                    xaxis=dict(tickfont=dict(color='#fff', size=13), gridcolor='#333',
+                               categoryorder='array', categoryarray=labels),
+                    yaxis=dict(range=[0, 115], tickfont=dict(color='#fff'), gridcolor='#333', title='Win Rate (%)'),
+                    bargap=0.35,
+                )
+                st.plotly_chart(fig_tempo, use_container_width=True)
+
+                # ── Per-map tempo heatmap ─────────────────────────────────────
+                st.markdown("#### 🗺️ Tempo Win Rate by Map")
+                map_tempo = tempo_rd.groupby(['Map', 'Tempo'], observed=True).agg(
+                    Rounds=('Result', 'count'),
+                    Wins=('Result', lambda x: (x.str.lower() == 'win').sum())
+                ).reset_index()
+                map_tempo['Win Rate %'] = (map_tempo['Wins'] / map_tempo['Rounds'] * 100).round(1)
+
+                # Pivot for heatmap
+                pivot = map_tempo.pivot(index='Map', columns='Tempo', values='Win Rate %')
+                pivot_n = map_tempo.pivot(index='Map', columns='Tempo', values='Rounds')
+                pivot = pivot.reindex(columns=labels)
+                pivot_n = pivot_n.reindex(columns=labels)
+
+                z = pivot.values.tolist()
+                maps_list = pivot.index.tolist()
+                customdata = []
+                for map_name in maps_list:
+                    row_custom = []
+                    for tempo in labels:
+                        wr = pivot.loc[map_name, tempo] if tempo in pivot.columns else None
+                        n  = pivot_n.loc[map_name, tempo] if tempo in pivot_n.columns else 0
+                        if pd.isna(wr):
+                            row_custom.append("No data")
+                        else:
+                            row_custom.append(f"{wr:.0f}% (n={int(n)})")
+                    customdata.append(row_custom)
+
+                text_vals = []
+                for map_name in maps_list:
+                    row_text = []
+                    for tempo in labels:
+                        wr = pivot.loc[map_name, tempo] if tempo in pivot.columns else None
+                        row_text.append(f"{wr:.0f}%" if pd.notna(wr) else "")
+                    text_vals.append(row_text)
+
+                fig_heat_tempo = go.Figure(data=go.Heatmap(
+                    z=z,
+                    x=labels,
+                    y=maps_list,
+                    customdata=customdata,
+                    colorscale=[[0, '#7f1d1d'], [0.5, '#fef08a'], [1, '#14532d']],
+                    zmid=50,
+                    zmin=0, zmax=100,
+                    text=text_vals,
+                    texttemplate='%{text}',
+                    textfont=dict(family='Rajdhani', size=13, color='white'),
+                    hovertemplate='Map: %{y}<br>Tempo: %{x}<br>%{customdata}<extra></extra>',
+                ))
+                fig_heat_tempo.update_layout(
+                    title='Attack Win Rate % by Map & Tempo',
+                    plot_bgcolor='#000000', paper_bgcolor='#000000',
+                    font=dict(family='Rajdhani', color='#E63946'),
+                    title_font=dict(size=18, color='#E63946'),
+                    xaxis=dict(tickfont=dict(color='#fff', size=12), side='bottom'),
+                    yaxis=dict(tickfont=dict(color='#fff'), autorange='reversed'),
+                    height=max(300, 55 * len(maps_list) + 120),
+                )
+                st.plotly_chart(fig_heat_tempo, use_container_width=True)
+
+                # ── Summary table ─────────────────────────────────────────────
+                st.markdown("#### 📋 Tempo Summary Table")
+                tempo_table = tempo_overall[['Tempo', 'Rounds', 'Wins', 'Win Rate %']].copy()
+                tempo_table['Losses'] = tempo_table['Rounds'] - tempo_table['Wins']
+                tempo_table['Win Rate %'] = tempo_table['Win Rate %'].apply(lambda x: f"{x:.1f}%")
+                st.dataframe(tempo_table[['Tempo', 'Rounds', 'Wins', 'Losses', 'Win Rate %']],
+                             use_container_width=True, hide_index=True)
+            else:
+                st.info("No attack tempo data for selected filters.")
     else:
         st.info("No data for selected tiers.")
 
