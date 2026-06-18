@@ -31,7 +31,7 @@ def get_base64_image(path):
     return base64.b64encode(data).decode()
 
 st.set_page_config(page_title="Valorant Scrim Dashboard", layout="wide")
-encoded_bg = get_base64_image("wallp.png")
+encoded_bg = get_base64_image("wallt.png")
 st.markdown(f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap');
