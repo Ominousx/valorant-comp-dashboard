@@ -628,10 +628,8 @@ if st.session_state.active_tab == 2:
         if not rounds_df.empty:
             st.markdown("### 📍 Post-Plant Success by Site")
 
-            # Filter round-level data by selected tiers + map + date range
+            # Filter round-level data by tier + date only — map is chosen independently below
             rd = rounds_df[rounds_df['Tier'].fillna(1).astype(int).isin(selected_tiers)].copy() if 'Tier' in rounds_df.columns else rounds_df.copy()
-            if selected_map != "All":
-                rd = rd[rd['Map'] == selected_map]
             if start_date and end_date:
                 rd = rd[(rd['Date'] >= pd.Timestamp(start_date)) & (rd['Date'] <= pd.Timestamp(end_date))]
 
