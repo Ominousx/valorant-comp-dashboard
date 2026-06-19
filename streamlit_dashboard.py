@@ -498,18 +498,18 @@ if st.session_state.active_tab == 2:
     st.subheader("📈 Round Insights")
     if not score_df_filtered.empty:
         maps  = sorted(score_df_filtered['Map'].dropna().unique())
-        dates = sorted(score_df_filtered['Date'].dropna().unique())
+        dates = sorted(score_df_filtered['Date'].dropna().dt.date.unique())
 
         col1, col2 = st.columns(2)
         selected_map = col1.selectbox("Filter by Map", ["All"] + maps)
-        start_date   = col1.selectbox("Start Date", dates, key="insight_start")
-        end_date     = col2.selectbox("End Date", dates, index=len(dates)-1, key="insight_end")
+        start_date   = col1.selectbox("Start Date", dates, format_func=lambda d: d.strftime("%Y-%m-%d"), key="insight_start")
+        end_date     = col2.selectbox("End Date", dates, index=len(dates)-1, format_func=lambda d: d.strftime("%Y-%m-%d"), key="insight_end")
 
         filtered_df = score_df_filtered.copy()
         if selected_map != "All":
             filtered_df = filtered_df[filtered_df['Map'] == selected_map]
         if start_date and end_date:
-            filtered_df = filtered_df[(filtered_df['Date'] >= start_date) & (filtered_df['Date'] <= end_date)]
+            filtered_df = filtered_df[(filtered_df['Date'].dt.date >= start_date) & (filtered_df['Date'].dt.date <= end_date)]
 
         def extract_wr(row, side):
             if pd.isna(row['Start']) or pd.isna(row['First Half WR']) or pd.isna(row['Second Half WR']):
