@@ -498,6 +498,7 @@ if st.session_state.active_tab == 2:
     st.subheader("📈 Round Insights")
     if not score_df_filtered.empty:
         maps  = sorted(score_df_filtered['Map'].dropna().unique())
+        # FIX: use .dt.date to strip time component from dropdown
         dates = sorted(score_df_filtered['Date'].dropna().dt.date.unique())
 
         col1, col2 = st.columns(2)
@@ -523,6 +524,7 @@ if st.session_state.active_tab == 2:
         filtered_df['Atk WR Derived'] = filtered_df.apply(lambda row: extract_wr(row, 'Attack'),  axis=1)
         filtered_df['Def WR Derived'] = filtered_df.apply(lambda row: extract_wr(row, 'Defence'), axis=1)
 
+        # FIX: format date for display only, after filtering is done
         filtered_df['Date'] = filtered_df['Date'].dt.strftime('%Y-%m-%d')
 
         st.dataframe(filtered_df, use_container_width=True)
@@ -632,7 +634,6 @@ if st.session_state.active_tab == 2:
         if not rounds_df.empty:
             st.markdown("### 📍 Post-Plant Success by Site")
 
-            # Filter round-level data by tier + date only — map is chosen independently below
             rd = rounds_df[rounds_df['Tier'].fillna(1).astype(int).isin(selected_tiers)].copy() if 'Tier' in rounds_df.columns else rounds_df.copy()
             if start_date and end_date:
                 rd = rd[(rd['Date'] >= pd.Timestamp(start_date)) & (rd['Date'] <= pd.Timestamp(end_date))]
@@ -734,15 +735,12 @@ if st.session_state.active_tab == 2:
             tempo_rd['Tempo'] = pd.cut(tempo_rd['engage_secs'], bins=bins, labels=labels)
 
             if not tempo_rd.empty:
-                # ── Overall tempo bar chart ───────────────────────────────────
+                # ── Overall tempo line chart ──────────────────────────────────
                 tempo_overall = tempo_rd.groupby('Tempo', observed=True).agg(
                     Rounds=('Result', 'count'),
                     Wins=('Result', lambda x: (x.str.lower() == 'win').sum())
                 ).reset_index()
                 tempo_overall['Win Rate %'] = (tempo_overall['Wins'] / tempo_overall['Rounds'] * 100).round(1)
-                tempo_overall['Label'] = tempo_overall.apply(
-                    lambda r: f"{r['Win Rate %']:.0f}%\n(n={r['Rounds']})", axis=1
-                )
 
                 TEMPO_COLORS = {
                     'Very Early (≤0:40)':   '#60a5fa',
@@ -751,14 +749,18 @@ if st.session_state.active_tab == 2:
                     'Late (1:16–1:40)':     '#f97316',
                 }
 
+                # FIX: line chart instead of bar chart
                 fig_tempo = go.Figure()
                 fig_tempo.add_trace(go.Scatter(
                     x=tempo_overall['Tempo'].astype(str),
                     y=tempo_overall['Win Rate %'],
                     mode='lines+markers+text',
                     line=dict(color='#E63946', width=2.5),
-                    marker=dict(size=10, color=[TEMPO_COLORS.get(str(t), '#aaa') for t in tempo_overall['Tempo']], 
-                    line=dict(color='#000', width=1.5)),
+                    marker=dict(
+                        size=12,
+                        color=[TEMPO_COLORS.get(str(t), '#aaa') for t in tempo_overall['Tempo']],
+                        line=dict(color='#000', width=1.5)
+                    ),
                     text=tempo_overall.apply(lambda r: f"{r['Win Rate %']:.0f}%  (n={r['Rounds']})", axis=1),
                     textposition='top center',
                     textfont=dict(color='#ffffff', size=12),
@@ -786,7 +788,6 @@ if st.session_state.active_tab == 2:
                 ).reset_index()
                 map_tempo['Win Rate %'] = (map_tempo['Wins'] / map_tempo['Rounds'] * 100).round(1)
 
-                # Pivot for heatmap
                 pivot = map_tempo.pivot(index='Map', columns='Tempo', values='Win Rate %')
                 pivot_n = map_tempo.pivot(index='Map', columns='Tempo', values='Rounds')
                 pivot = pivot.reindex(columns=labels)
@@ -946,11 +947,12 @@ if st.session_state.active_tab == 4:
 
     if not player_df.empty:
         player_df['Date'] = pd.to_datetime(player_df['Date'], errors='coerce')
-        player_df = player_df.dropna(subset=['Date'])
+        # FIX: don't drop rows with missing dates — keeps SiuFatBB, Sharks etc.
         all_players = sorted(player_df['Player'].dropna().unique())
         all_maps    = sorted(player_df['Column 1'].dropna().unique())
-        min_date = player_df['Date'].min().date()
-        max_date = player_df['Date'].max().date()
+        # FIX: use dropna() only for computing min/max date range
+        min_date = player_df['Date'].dropna().min().date()
+        max_date = player_df['Date'].dropna().max().date()
         col1, col2 = st.columns(2)
         selected_player = col1.selectbox("Select a player:", all_players)
         start_date      = col1.date_input("Start date:", min_value=min_date, max_value=max_date, value=min_date)
@@ -958,8 +960,9 @@ if st.session_state.active_tab == 4:
         selected_map    = col2.selectbox("Filter by Map:", ["All"] + all_maps)
         filtered = player_df[
             (player_df['Player'] == selected_player) &
-            (player_df['Date'].dt.date >= start_date) &
-            (player_df['Date'].dt.date <= end_date)
+            # FIX: players without dates always included (NaT comparison returns False, so they pass through)
+            (player_df['Date'].isna() | (player_df['Date'].dt.date >= start_date)) &
+            (player_df['Date'].isna() | (player_df['Date'].dt.date <= end_date))
         ]
         if selected_map != "All":
             filtered = filtered[filtered['Column 1'] == selected_map]
@@ -1033,11 +1036,12 @@ if st.session_state.active_tab == 5:
 
     if not player_df.empty:
         player_df['Date'] = pd.to_datetime(player_df['Date'], errors='coerce')
-        player_df = player_df.dropna(subset=['Date'])
+        # FIX: don't drop rows with missing dates — keeps SiuFatBB, Sharks etc.
         all_players = sorted(player_df['Player'].dropna().unique())
         all_maps    = sorted(player_df['Column 1'].dropna().unique())
-        min_date = player_df['Date'].min().date()
-        max_date = player_df['Date'].max().date()
+        # FIX: use dropna() only for computing min/max date range
+        min_date = player_df['Date'].dropna().min().date()
+        max_date = player_df['Date'].dropna().max().date()
         col1, col2 = st.columns(2)
         selected_player = col1.selectbox("Select a player:", all_players, key='compare_player')
         start_date      = col1.date_input("Start date:", value=min_date, min_value=min_date, max_value=max_date, key='compare_start')
@@ -1059,8 +1063,9 @@ if st.session_state.active_tab == 5:
 
         filtered = player_df[
             (player_df['Player'] == selected_player) &
-            (player_df['Date'].dt.date >= start_date) &
-            (player_df['Date'].dt.date <= end_date)
+            # FIX: players without dates always included
+            (player_df['Date'].isna() | (player_df['Date'].dt.date >= start_date)) &
+            (player_df['Date'].isna() | (player_df['Date'].dt.date <= end_date))
         ]
         if selected_map != "All":
             filtered = filtered[filtered['Column 1'] == selected_map]
