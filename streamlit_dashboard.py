@@ -523,6 +523,8 @@ if st.session_state.active_tab == 2:
         filtered_df['Atk WR Derived'] = filtered_df.apply(lambda row: extract_wr(row, 'Attack'),  axis=1)
         filtered_df['Def WR Derived'] = filtered_df.apply(lambda row: extract_wr(row, 'Defence'), axis=1)
 
+        filtered_df['Date'] = filtered_df['Date'].dt.strftime('%Y-%m-%d')
+
         st.dataframe(filtered_df, use_container_width=True)
 
         st.markdown("### 🔍 Summary Stats")
