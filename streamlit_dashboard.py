@@ -752,15 +752,17 @@ if st.session_state.active_tab == 2:
                 }
 
                 fig_tempo = go.Figure()
-                for _, row in tempo_overall.iterrows():
-                    fig_tempo.add_trace(go.Bar(
-                        x=[row['Tempo']], y=[row['Win Rate %']],
-                        name=str(row['Tempo']),
-                        marker_color=TEMPO_COLORS.get(str(row['Tempo']), '#aaa'),
-                        text=f"{row['Win Rate %']:.0f}%<br><span style='font-size:11px'>n={row['Rounds']}</span>",
-                        textposition='outside',
-                        showlegend=False,
-                    ))
+                fig_tempo.add_trace(go.Scatter(
+                    x=tempo_overall['Tempo'].astype(str),
+                    y=tempo_overall['Win Rate %'],
+                    mode='lines+markers+text',
+                    line=dict(color='#E63946', width=2.5),
+                    marker=dict(size=10, color=[TEMPO_COLORS.get(str(t), '#aaa') for t in tempo_overall['Tempo']], 
+                    line=dict(color='#000', width=1.5)),
+                    text=tempo_overall.apply(lambda r: f"{r['Win Rate %']:.0f}%  (n={r['Rounds']})", axis=1),
+                    textposition='top center',
+                    textfont=dict(color='#ffffff', size=12),
+                ))
                 fig_tempo.add_hline(y=50, line_dash='dash', line_color='#666',
                     annotation_text='50%', annotation_font_color='#aaa')
                 fig_tempo.update_layout(
@@ -768,10 +770,11 @@ if st.session_state.active_tab == 2:
                     plot_bgcolor='#000000', paper_bgcolor='#000000',
                     font=dict(family='Rajdhani', color='#E63946'),
                     title_font=dict(size=18, color='#E63946'),
-                    xaxis=dict(tickfont=dict(color='#fff', size=13), gridcolor='#333',
-                               categoryorder='array', categoryarray=labels),
+                    xaxis=dict(
+                        tickfont=dict(color='#fff', size=13), gridcolor='#333',
+                        categoryorder='array', categoryarray=labels
+                    ),
                     yaxis=dict(range=[0, 115], tickfont=dict(color='#fff'), gridcolor='#333', title='Win Rate (%)'),
-                    bargap=0.35,
                 )
                 st.plotly_chart(fig_tempo, use_container_width=True)
 
